@@ -239,7 +239,7 @@ function vList(){
   } else if(S.quizzes.length===0){
     body=`<div class="no-quizzes"><div class="nq-icon">📭</div>
       <div class="nq-title">Brak quizów</div>
-      <div class="nq-sub">Administrator nie dodał jeszcze żadnych quizów.<br>Zaloguj się jako admin, aby utworzyć pierwszy quiz.</div></div>`;
+      <div class="nq-sub">Brak Dostępnych Quizów.</div></div>`;
   } else {
     body=`<div class="quiz-grid">${S.quizzes.map(q=>{
       const icon=q.type==='tf'?'⚖️':q.type==='open'?'✏️':'📝';
