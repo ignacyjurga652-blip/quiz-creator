@@ -156,7 +156,7 @@ hr{border:none;border-top:1px solid var(--border);margin:20px 0;}
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, serverTimestamp, query, orderBy, getDoc, setDoc }
+import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, serverTimestamp, query, orderBy }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -239,7 +239,7 @@ function vList(){
   } else if(S.quizzes.length===0){
     body=`<div class="no-quizzes"><div class="nq-icon">📭</div>
       <div class="nq-title">Brak quizów</div>
-      <div class="nq-sub">Brak Dostępnych Quizów.</div></div>`;
+      <div class="nq-sub">Administrator nie dodał jeszcze żadnych quizów.<br>Zaloguj się jako admin, aby utworzyć pierwszy quiz.</div></div>`;
   } else {
     body=`<div class="quiz-grid">${S.quizzes.map(q=>{
       const icon=q.type==='tf'?'⚖️':q.type==='open'?'✏️':'📝';
@@ -522,35 +522,7 @@ window.saveModalQ=function(){
 };
 
 /* ---- Actions ---- */
-window.setPwd=async function(){
-  const p1=document.getElementById('pwd1').value;
-  const p2=document.getElementById('pwd2').value;
-  const err=document.getElementById('perr');
-
-  if(!p1){
-    err.textContent='Hasło nie może być puste.';
-    err.classList.add('show');
-    return;
-  }
-  if(p1!==p2){
-    err.textContent='Hasła nie są zgodne.';
-    err.classList.add('show');
-    return;
-  }
-
-  try{
-    await setDoc(doc(db,'settings','admin'),{
-      password:p1
-    });
-
-    S.adminPwd=p1;
-    S.isAdmin=true;
-    setView('admin-panel');
-  }catch(e){
-    err.textContent='Błąd zapisu hasła: '+e.message;
-    err.classList.add('show');
-  }
-};
+window.setPwd=function(){
   const p1=document.getElementById('pwd1').value, p2=document.getElementById('pwd2').value;
   const err=document.getElementById('perr');
   if(!p1){err.textContent='Hasło nie może być puste.';err.classList.add('show');return;}
@@ -559,32 +531,7 @@ window.setPwd=async function(){
   try{localStorage.setItem('qp_pwd',p1);}catch(e){}
   setView('admin-panel');
 };
-window.doLogin=async function(){
-  const p=(document.getElementById('lpwd')||{}).value||'';
-
-  try{
-    const snap = await getDoc(doc(db,'settings','admin'));
-
-    if(!snap.exists()){
-      alert('Hasło nie zostało jeszcze ustawione!');
-      return;
-    }
-
-    const realPwd = snap.data().password;
-
-    if(p===realPwd){
-      S.isAdmin=true;
-      S.loginErr=false;
-      setView('admin-panel');
-    }else{
-      S.loginErr=true;
-      render();
-    }
-
-  }catch(e){
-    alert('Błąd logowania: '+e.message);
-  }
-};
+window.doLogin=function(){
   const p=(document.getElementById('lpwd')||{}).value||'';
   if(p===S.adminPwd){S.isAdmin=true;S.loginErr=false;setView('admin-panel');}
   else{S.loginErr=true;render();setTimeout(()=>document.getElementById('lpwd')&&document.getElementById('lpwd').focus(),50);}
