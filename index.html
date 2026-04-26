@@ -259,6 +259,29 @@ hr{border:none;border-top:1px solid var(--border);margin:20px 0;}
   100%{transform:scale(1)}
 }
 .badge-pop{animation:badgePop .35s cubic-bezier(.22,1,.36,1) both;}
+
+/* ===== TIMER ===== */
+.timer-wrap{
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;
+  color:var(--muted2);letter-spacing:.04em;
+  background:var(--s2);border:1px solid var(--border);
+  border-radius:99px;padding:4px 12px;
+  transition:.3s;
+}
+.timer-wrap.running{color:var(--accent);}
+.timer-icon{font-size:12px;}
+.timer-bar-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.result-time-box{
+  background:var(--s2);border:1px solid var(--border);border-radius:var(--r);
+  padding:16px 20px;margin-bottom:14px;
+  display:flex;align-items:center;gap:14px;
+  animation:fadeUp .4s cubic-bezier(.22,1,.36,1) .1s both;
+}
+.rtb-icon{font-size:24px;}
+.rtb-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:600;margin-bottom:2px;}
+.rtb-value{font-size:22px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums;}
+.rtb-sub{font-size:11px;color:var(--muted2);}
 ::-webkit-scrollbar{width:6px;}
 ::-webkit-scrollbar-track{background:var(--bg);}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
@@ -297,7 +320,7 @@ const S = {
   adminPwd:null, isAdmin:false, loginErr:false,
   draftTitle:'', draftType:'abcd', draftQs:[], createErr:'',
   modalMode:null, modalQIdx:-1, modalData:null, modalErr:'',
-  quiz:null, qIdx:0, answers:[], showAns:false,
+  quiz:null, qIdx:0, answers:[], showAns:false, timerStart:null, timerElapsed:0, timerInterval:null,
   onlineCount:0,
 };
 window.S = S;
@@ -398,8 +421,8 @@ function vList(){
       <div class="nq-sub">Nie można połączyć się z Firebase.<br>Sprawdź reguły Firestore (tryb testowy) lub połączenie z internetem.</div></div>`;
   } else if(S.quizzes.length===0){
     body=`<div class="no-quizzes"><div class="nq-icon">📭</div>
-      <div class="nq-title">Brak Quizów.</div>
-      <div class="nq-sub">Brak Dostępnych Quizów.</div></div>`;
+      <div class="nq-title">Brak quizów</div>
+      <div class="nq-sub">Administrator nie dodał jeszcze żadnych quizów.<br>Zaloguj się jako admin, aby utworzyć pierwszy quiz.</div></div>`;
   } else {
     body=`<div class="quiz-grid">${S.quizzes.map(q=>{
       const icon=q.type==='tf'?'⚖️':q.type==='open'?'✏️':'📝';
@@ -554,10 +577,13 @@ function vTake(){
   const navBtn=(ans!==undefined)||(q.type==='open'&&revealed)
     ?(qi<q.questions.length-1
       ?`<button class="btn btn-primary" onclick="nextQ()">Dalej →</button>`
-      :`<button class="btn btn-primary" onclick="setView('results')">Zobacz wyniki →</button>`):'';
+      :`<button class="btn btn-primary" onclick="stopAndShowResults()">Zobacz wyniki →</button>`):'';
   const bt=q.type==='tf'?'Prawda / Fałsz':q.type==='open'?'Otwarte':'ABCD';
-  return `<div class="back" onclick="setView('list')">Wróć do listy</div>
-  <div style="font-size:13px;color:var(--muted2);margin-bottom:8px">${esc(q.title)} · <span style="color:var(--accent)">${bt}</span></div>
+  return `<div class="back" onclick="stopTimer();setView('list')">Wróć do listy</div>
+  <div class="timer-bar-row">
+    <div style="font-size:13px;color:var(--muted2)">${esc(q.title)} · <span style="color:var(--accent)">${bt}</span></div>
+    <div class="timer-wrap running" id="live-timer">⏱ ${formatTime(S.timerElapsed)}</div>
+  </div>
   <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
   <div class="q-card">
     <div class="q-label">Pytanie ${qi+1} z ${q.questions.length}</div>
@@ -599,6 +625,14 @@ function vResults(){
       <div class="result-score">${score}<span style="font-size:28px;color:var(--muted)"> / ${total}</span></div>
       <div style="font-size:15px;color:var(--muted2);margin-bottom:8px">${pct}% poprawnych</div>
       <div style="font-size:14px;font-weight:600;color:${gc}">${grade}</div>
+    </div>
+    <div class="result-time-box">
+      <div class="rtb-icon">⏱</div>
+      <div>
+        <div class="rtb-label">Czas ukończenia</div>
+        <div class="rtb-value">${formatTime(S.timerElapsed)}</div>
+        <div class="rtb-sub">${timeComment(S.timerElapsed, total)}</div>
+      </div>
     </div>
     <div class="result-detail"><div class="inp-label" style="margin-bottom:12px">Szczegóły</div>${details}</div>
     <button class="btn btn-primary btn-full" onclick="setView('list')" style="margin-bottom:10px">← Wróć do listy</button>
@@ -721,9 +755,39 @@ window.saveQuiz=async function(){
     render();
   }
 };
+function formatTime(ms){
+  if(!ms) ms=0;
+  const s=Math.floor(ms/1000);
+  const m=Math.floor(s/60);
+  const sec=s%60;
+  if(m===0) return sec+'s';
+  return m+'m '+(sec<10?'0':'')+sec+'s';
+}
+function timeComment(ms, totalQ){
+  const sPerQ = ms/1000/totalQ;
+  if(sPerQ < 5)  return 'Błyskawiczne tempo! ⚡';
+  if(sPerQ < 12) return 'Świetne tempo!';
+  if(sPerQ < 25) return 'Spokojne tempo';
+  return 'Przemyślane odpowiedzi 🤔';
+}
+function startTimer(){
+  stopTimer();
+  S.timerStart = Date.now();
+  S.timerElapsed = 0;
+  S.timerInterval = setInterval(()=>{
+    S.timerElapsed = Date.now() - S.timerStart;
+    const el = document.getElementById('live-timer');
+    if(el) el.textContent = '⏱ ' + formatTime(S.timerElapsed);
+  }, 1000);
+}
+function stopTimer(){
+  if(S.timerInterval){ clearInterval(S.timerInterval); S.timerInterval=null; }
+}
 window.startQuiz=function(id){
   const q=S.quizzes.find(q=>q.id===id);if(!q)return;
-  S.quiz=q;S.qIdx=0;S.answers=new Array(q.questions.length).fill(undefined);S.showAns=false;setView('take-quiz');
+  S.quiz=q;S.qIdx=0;S.answers=new Array(q.questions.length).fill(undefined);S.showAns=false;
+  startTimer();
+  setView('take-quiz');
 };
 window.selectAns=function(oi){
   if(S.answers[S.qIdx]!==undefined)return;
@@ -734,7 +798,8 @@ window.submitOpen=function(){
   S.showAns=true;render();
 };
 window.nextQ=function(){S.qIdx++;S.showAns=false;render();};
-window.restartQuiz=function(){S.qIdx=0;S.answers=new Array(S.quiz.questions.length).fill(undefined);S.showAns=false;setView('take-quiz');};
+window.stopAndShowResults=function(){stopTimer();setView('results');};
+window.restartQuiz=function(){S.qIdx=0;S.answers=new Array(S.quiz.questions.length).fill(undefined);S.showAns=false;startTimer();setView('take-quiz');};
 
 /* ---- Init ---- */
 render();
