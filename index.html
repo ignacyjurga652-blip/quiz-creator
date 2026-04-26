@@ -231,6 +231,34 @@ hr{border:none;border-top:1px solid var(--border);margin:20px 0;}
 
 /* Progress bar glow */
 .progress-fill{box-shadow:0 0 8px rgba(232,160,74,.4);}
+
+/* ===== ONLINE BADGE ===== */
+.online-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:11px;font-weight:600;
+  background:var(--s2);border:1px solid var(--border);
+  border-radius:99px;padding:4px 11px;
+  color:var(--muted2);
+  transition:.3s;
+}
+.online-dot{
+  width:7px;height:7px;border-radius:50%;
+  background:var(--correct);
+  box-shadow:0 0 0 0 rgba(74,222,128,.5);
+  animation:onlinePulse 2s ease infinite;
+  flex-shrink:0;
+}
+@keyframes onlinePulse{
+  0%{box-shadow:0 0 0 0 rgba(74,222,128,.5)}
+  70%{box-shadow:0 0 0 7px rgba(74,222,128,0)}
+  100%{box-shadow:0 0 0 0 rgba(74,222,128,0)}
+}
+@keyframes badgePop{
+  0%{transform:scale(1)}
+  40%{transform:scale(1.12)}
+  100%{transform:scale(1)}
+}
+.badge-pop{animation:badgePop .35s cubic-bezier(.22,1,.36,1) both;}
 ::-webkit-scrollbar{width:6px;}
 ::-webkit-scrollbar-track{background:var(--bg);}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
@@ -248,6 +276,8 @@ hr{border:none;border-top:1px solid var(--border);margin:20px 0;}
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, serverTimestamp, query, orderBy }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getDatabase, ref, onValue, onDisconnect, set, remove, push }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDf0k-X0pGNvq9RC9FTBZp-i5Nj4JM1ovI",
@@ -268,6 +298,7 @@ const S = {
   draftTitle:'', draftType:'abcd', draftQs:[], createErr:'',
   modalMode:null, modalQIdx:-1, modalData:null, modalErr:'',
   quiz:null, qIdx:0, answers:[], showAns:false,
+  onlineCount:0,
 };
 window.S = S;
 
@@ -290,6 +321,45 @@ onSnapshot(q,
 
 async function fsAdd(quiz){ await addDoc(collection(db,'quizzes'),{...quiz,createdAt:serverTimestamp()}); }
 async function fsDel(id){ await deleteDoc(doc(db,'quizzes',id)); }
+
+/* ---- Presence / Online counter ---- */
+const rtdb = getDatabase(app);
+const presenceRef = ref(rtdb, 'presence');
+const myRef = push(presenceRef);
+
+// On connect: register presence, auto-remove on disconnect
+set(myRef, { online: true, joinedAt: Date.now() });
+onDisconnect(myRef).remove();
+
+// Remove when page is hidden / closed
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') {
+    remove(myRef);
+  } else {
+    set(myRef, { online: true, joinedAt: Date.now() });
+  }
+});
+window.addEventListener('beforeunload', () => remove(myRef));
+
+// Listen for count changes
+onValue(presenceRef, (snap) => {
+  S.onlineCount = snap.exists() ? Object.keys(snap.val()).length : 0;
+  updateOnlineBadge();
+});
+
+function updateOnlineBadge() {
+  const badge = document.getElementById('online-badge');
+  if (!badge) return;
+  badge.innerHTML = onlineBadgeHTML();
+  badge.classList.remove('badge-pop');
+  void badge.offsetWidth; // reflow
+  badge.classList.add('badge-pop');
+}
+
+function onlineBadgeHTML() {
+  const n = S.onlineCount;
+  return `<span class="online-dot"></span>${n} ${n === 1 ? 'osoba online' : n < 5 ? 'osoby online' : 'osób online'}`;
+}
 
 /* ---- Helpers ---- */
 const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -328,7 +398,7 @@ function vList(){
       <div class="nq-sub">Nie można połączyć się z Firebase.<br>Sprawdź reguły Firestore (tryb testowy) lub połączenie z internetem.</div></div>`;
   } else if(S.quizzes.length===0){
     body=`<div class="no-quizzes"><div class="nq-icon">📭</div>
-      <div class="nq-title">Brak quizów</div>
+      <div class="nq-title">Brak Quizów.</div>
       <div class="nq-sub">Brak Dostępnych Quizów.</div></div>`;
   } else {
     body=`<div class="quiz-grid">${S.quizzes.map(q=>{
@@ -347,7 +417,10 @@ function vList(){
     }).join('')}</div>`;
   }
   return `<div class="page-header">
-    <div><div class="logo">${dot}QuizPlatforma <span class="logo-sub">/ quizy</span></div></div>
+    <div>
+      <div class="logo">${dot}QuizPlatforma <span class="logo-sub">/ quizy</span></div>
+      <div id="online-badge" class="online-badge" style="margin-top:6px">${onlineBadgeHTML()}</div>
+    </div>
     ${adminBtn}</div>${body}`;
 }
 
@@ -380,7 +453,10 @@ function vAdminPanel(){
         </div>`;
       }).join('');
   return `<div class="page-header">
-    <div class="section-title" style="margin-bottom:0">Panel admina</div>
+    <div>
+      <div class="section-title" style="margin-bottom:4px">Panel admina</div>
+      <div id="online-badge" class="online-badge">${onlineBadgeHTML()}</div>
+    </div>
     <button class="btn btn-secondary btn-sm" onclick="logout()">Wyloguj</button>
   </div>
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:20px">
