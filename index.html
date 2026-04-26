@@ -770,7 +770,7 @@ function timeComment(ms, totalQ){
   if(sPerQ < 25) return 'Spokojne tempo';
   return 'Przemyślane odpowiedzi 🤔';
 }
-function startTimer(){
+window.startTimer=function(){
   stopTimer();
   S.timerStart = Date.now();
   S.timerElapsed = 0;
@@ -780,7 +780,7 @@ function startTimer(){
     if(el) el.textContent = '⏱ ' + formatTime(S.timerElapsed);
   }, 1000);
 }
-function stopTimer(){
+window.stopTimer=function(){
   if(S.timerInterval){ clearInterval(S.timerInterval); S.timerInterval=null; }
 }
 window.startQuiz=function(id){
