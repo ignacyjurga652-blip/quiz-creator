@@ -750,6 +750,10 @@ function buildModal(){
     <button class="btn btn-primary" onclick="saveModalQ()">${isEdit?'Zapisz zmiany':'Dodaj pytanie'}</button>
   </div>`;
 }
+function openModal(){ document.getElementById('modal-overlay').classList.add('open'); }
+function closeModal(){ document.getElementById('modal-overlay').classList.remove('open'); }
+window.closeModal = closeModal;
+window.handleOverlayClick = function(e){ if(e.target===document.getElementById('modal-overlay')) closeModal(); };
 window.renderModal = renderModal;
 window.addOpt=function(){ if((S.modalData.opts||[]).length>=6)return;S.modalData.opts.push('');renderModal(); };
 window.removeOpt=function(oi){ if(S.modalData.opts.length<=2)return;S.modalData.opts.splice(oi,1);if(S.modalData.correct>=S.modalData.opts.length)S.modalData.correct=0;renderModal(); };
