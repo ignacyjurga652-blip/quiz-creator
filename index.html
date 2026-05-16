@@ -701,13 +701,13 @@ function buildModal(){
     {id:'abcd',icon:'📋',label:'ABCD'},
     {id:'tf',  icon:'⚖️',label:'Prawda / Fałsz'},
     {id:'open',icon:'✏️',label:'Otwarte'},
-  ].map(t=>`<button class="q-type-btn${type===t.id?' selected':''}" onclick="S.modalData.type='${t.id}';if(t.id==='abcd'&&!S.modalData.opts)S.modalData.opts=['','','',''];renderModal()">
+  ].map(t=>`<button class="q-type-btn${type===t.id?' selected':''}" onclick="setModalType('${t.id}')">
     <span class="qti">${t.icon}</span>${t.label}</button>`).join('');
   let body='';
   if(type==='tf'){
     body=['Prawda','Fałsz'].map((o,i)=>`
       <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--s2);border:1.5px solid ${q.correct===i?'var(--correct)':'var(--border)'};border-radius:var(--r2);cursor:pointer;margin-bottom:8px;font-size:14px">
-        <input type="radio" name="tf_correct" value="${i}" ${q.correct===i?'checked':''} onchange="S.modalData.correct=${i};renderModal()" style="accent-color:var(--correct)">
+        <input type="radio" name="tf_correct" value="${i}" ${q.correct===i?'checked':''} onchange="setCorrect(${i})" style="accent-color:var(--correct)">
         ${o}</label>`).join('');
   } else if(type==='open'){
     body=`<div class="form-group"><label class="inp-label">Wzorcowa odpowiedź (opcjonalna)</label>
@@ -717,7 +717,7 @@ function buildModal(){
     if(!q.opts||!q.opts.length) q.opts=['','','',''];
     const optRows=q.opts.map((o,oi)=>`
       <div class="opt-input-row">
-        <input type="radio" name="qcorrect" value="${oi}" ${q.correct===oi?'checked':''} onchange="S.modalData.correct=${oi};renderModal()" title="Zaznacz jako poprawną">
+        <input type="radio" name="qcorrect" value="${oi}" ${q.correct===oi?'checked':''} onchange="setCorrect(${oi})" title="Zaznacz jako poprawną">
         <input class="inp" type="text" placeholder="Opcja ${LABELS[oi]}..." value="${escA(o)}" oninput="S.modalData.opts[${oi}]=this.value">
         ${q.opts.length>2?`<button class="rm-opt" onclick="removeOpt(${oi})" title="Usuń">✕</button>`:'<span style="width:22px"></span>'}
       </div>`).join('');
@@ -757,6 +757,31 @@ window.handleOverlayClick = function(e){ if(e.target===document.getElementById('
 window.renderModal = renderModal;
 window.addOpt=function(){ if((S.modalData.opts||[]).length>=6)return;S.modalData.opts.push('');renderModal(); };
 window.removeOpt=function(oi){ if(S.modalData.opts.length<=2)return;S.modalData.opts.splice(oi,1);if(S.modalData.correct>=S.modalData.opts.length)S.modalData.correct=0;renderModal(); };
+window.setCorrect=function(idx){
+  const ta=document.querySelector('#modal-content textarea');
+  if(ta) S.modalData.text=ta.value;
+  const imgInp=document.getElementById('img-url-inp');
+  if(imgInp) S.modalData.imageUrl=imgInp.value;
+  // save current opt inputs
+  document.querySelectorAll('.opt-input-row input[type=text]').forEach((inp,i)=>{
+    if(S.modalData.opts) S.modalData.opts[i]=inp.value;
+  });
+  S.modalData.correct=idx;
+  renderModal();
+};
+window.setModalType=function(t){
+  // save current text before re-render
+  const ta=document.querySelector('#modal-content textarea');
+  if(ta) S.modalData.text=ta.value;
+  const imgInp=document.getElementById('img-url-inp');
+  if(imgInp) S.modalData.imageUrl=imgInp.value;
+  S.modalData.type=t;
+  if(t==='abcd' && (!S.modalData.opts||!S.modalData.opts.length)){
+    S.modalData.opts=['','','',''];
+    S.modalData.correct=0;
+  }
+  renderModal();
+};
 window.saveModalQ=function(){
   const q=S.modalData, type=q.type||'abcd';
   if(!(q.text||'').trim()){S.modalErr='Wpisz treść pytania.';renderModal();return;}
