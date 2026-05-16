@@ -282,6 +282,16 @@ hr{border:none;border-top:1px solid var(--border);margin:20px 0;}
 .rtb-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:600;margin-bottom:2px;}
 .rtb-value{font-size:22px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums;}
 .rtb-sub{font-size:11px;color:var(--muted2);}
+
+/* ===== QUESTION IMAGE ===== */
+.q-img-wrap{margin-bottom:18px;border-radius:var(--r);overflow:hidden;border:1px solid var(--border);background:var(--s2);max-height:280px;display:flex;align-items:center;justify-content:center;}
+.q-img-wrap img{width:100%;max-height:280px;object-fit:contain;display:block;}
+.modal-img-preview{width:100%;max-height:160px;object-fit:contain;border-radius:var(--r2);margin-top:8px;border:1px solid var(--border);}
+.q-type-selector{display:flex;gap:8px;margin-bottom:16px;}
+.q-type-btn{flex:1;background:var(--s2);border:1.5px solid var(--border);border-radius:var(--r2);padding:8px 6px;cursor:pointer;text-align:center;font-size:11px;font-weight:600;color:var(--muted2);transition:.15s;font-family:'DM Sans',sans-serif;}
+.q-type-btn:hover{border-color:var(--border2);color:var(--text);}
+.q-type-btn.selected{border-color:var(--accent);background:rgba(232,160,74,.08);color:var(--accent);}
+.q-type-btn .qti{font-size:16px;display:block;margin-bottom:3px;}
 ::-webkit-scrollbar{width:6px;}
 ::-webkit-scrollbar-track{background:var(--bg);}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
@@ -410,34 +420,39 @@ function vLoading(){
 }
 
 function vList(){
-  const dot = `<span class="sync-dot${S.firestoreOk?'':' err'}"></span>`;
-  const adminBtn = S.isAdmin
+  const dot=`<span class="sync-dot${S.firestoreOk?'':' err'}"></span>`;
+  const adminBtn=S.isAdmin
     ? `<button class="admin-entry active" onclick="setView('admin-panel')">⚙ Panel admina</button>`
     : `<button class="admin-entry" onclick="setView('admin-login')">⚙ Admin</button>`;
   let body='';
   if(!S.firestoreOk){
     body=`<div class="no-quizzes"><div class="nq-icon">⚠️</div>
       <div class="nq-title">Błąd połączenia</div>
-      <div class="nq-sub">Nie można połączyć się z Firebase.<br>Sprawdź reguły Firestore (tryb testowy) lub połączenie z internetem.</div></div>`;
+      <div class="nq-sub">Nie można połączyć się z Firebase.<br>Sprawdź reguły Firestore lub połączenie z internetem.</div></div>`;
   } else if(S.quizzes.length===0){
     body=`<div class="no-quizzes"><div class="nq-icon">📭</div>
       <div class="nq-title">Brak quizów</div>
       <div class="nq-sub">Administrator nie dodał jeszcze żadnych quizów.<br>Zaloguj się jako admin, aby utworzyć pierwszy quiz.</div></div>`;
   } else {
-    body=`<div class="quiz-grid">${S.quizzes.map(q=>{
-      const icon=q.type==='tf'?'⚖️':q.type==='open'?'✏️':'📝';
-      const bc=q.type==='tf'?'badge-tf':q.type==='open'?'badge-open':'badge-abcd';
-      const bt=q.type==='tf'?'Prawda / Fałsz':q.type==='open'?'Otwarte':'ABCD';
+    const cards=S.quizzes.map(q=>{
+      const qs=q.questions||[];
+      const types=[...new Set(qs.map(x=>x.type||q.type||'abcd'))];
+      const mixed=types.length>1;
+      const mainType=mixed?'mixed':(types[0]||'abcd');
+      const icon=mixed?'🎲':mainType==='tf'?'⚖️':mainType==='open'?'✏️':'📝';
+      const bc=mixed?'badge-open':mainType==='tf'?'badge-tf':mainType==='open'?'badge-open':'badge-abcd';
+      const bt=mixed?'Różne typy':mainType==='tf'?'Prawda / Fałsz':mainType==='open'?'Otwarte':'ABCD';
       return `<div class="quiz-card">
         <div class="quiz-card-icon">${icon}</div>
         <div class="quiz-card-info">
           <div class="quiz-type-badge ${bc}">${bt}</div>
           <div class="quiz-card-title">${esc(q.title)}</div>
-          <div class="quiz-card-meta">${(q.questions||[]).length} pytań</div>
+          <div class="quiz-card-meta">${qs.length} pytań · losowa kolejność</div>
         </div>
         <button class="btn btn-primary btn-sm" onclick="startQuiz('${q.id}')">Rozpocznij →</button>
       </div>`;
-    }).join('')}</div>`;
+    }).join('');
+    body=`<div class="quiz-grid">${cards}</div>`;
   }
   return `<div class="page-header">
     <div>
@@ -464,8 +479,10 @@ function vAdminPanel(){
   const rows = S.quizzes.length===0
     ? `<p style="font-size:13px;color:var(--muted);margin-bottom:16px">Brak quizów. Kliknij "+ Nowy quiz".</p>`
     : S.quizzes.map(q=>{
-        const bc=q.type==='tf'?'badge-tf':q.type==='open'?'badge-open':'badge-abcd';
-        const bt=q.type==='tf'?'Prawda/Fałsz':q.type==='open'?'Otwarte':'ABCD';
+        const qs2=q.questions||[]; const types2=[...new Set(qs2.map(x=>x.type||q.type||'abcd'))];
+        const mixed2=types2.length>1; const mainType2=mixed2?'mixed':types2[0]||'abcd';
+        const bc=mixed2?'badge-open':mainType2==='tf'?'badge-tf':mainType2==='open'?'badge-open':'badge-abcd';
+        const bt=mixed2?'Różne typy':mainType2==='tf'?'Prawda/Fałsz':mainType2==='open'?'Otwarte':'ABCD';
         return `<div class="admin-quiz-row">
           <div class="aqr-info">
             <span class="quiz-type-badge ${bc}" style="margin-bottom:3px">${bt}</span>
@@ -491,25 +508,21 @@ function vAdminPanel(){
 }
 
 function vCreate(){
-  const types=[
-    {id:'abcd',icon:'📋',name:'ABCD',desc:'Wielokrotny wybór'},
-    {id:'tf',icon:'⚖️',name:'Prawda / Fałsz',desc:'Dwie opcje'},
-    {id:'open',icon:'✏️',name:'Otwarte',desc:'Własna odpowiedź'},
-  ];
-  const typeCards=types.map(t=>`
-    <div class="type-card${S.draftType===t.id?' selected':''}" onclick="setDraftType('${t.id}')">
-      <div class="type-card-icon">${t.icon}</div>
-      <div class="type-card-name">${t.name}</div>
-      <div class="type-card-desc">${t.desc}</div>
-    </div>`).join('');
+  const typeIcon={abcd:'📋',tf:'⚖️',open:'✏️'};
+  const typeLabel={abcd:'ABCD',tf:'Prawda/Fałsz',open:'Otwarte'};
   const qs=S.draftQs.map((q,i)=>{
+    const qt=q.type||'abcd';
     let sub='';
-    if(S.draftType==='tf') sub=`Odpowiedź: <strong>${q.correct===0?'Prawda':'Fałsz'}</strong>`;
-    else if(S.draftType==='open') sub=q.answer?`Wzorcowa: ${esc(q.answer)}`:'Brak wzorcowej';
+    if(qt==='tf') sub=`Odpowiedź: <strong>${q.correct===0?'Prawda':'Fałsz'}</strong>`;
+    else if(qt==='open') sub=q.answer?`Wzorcowa: ${esc(q.answer)}`:'Brak wzorcowej';
     else sub=`${(q.opts||[]).filter(o=>o).length} opcji · Poprawna: ${LABELS[q.correct||0]}`;
+    const imgDot=q.imageUrl?' · 🖼':'';
     return `<div class="draft-q-item">
       <div class="dqi-num">${i+1}</div>
-      <div style="flex:1;min-width:0"><div class="dqi-text">${esc(q.text)}</div><div class="dqi-sub">${sub}</div></div>
+      <div style="flex:1;min-width:0">
+        <div class="dqi-text">${esc(q.text)}</div>
+        <div class="dqi-sub"><span style="color:var(--accent)">${typeIcon[qt]} ${typeLabel[qt]}</span> · ${sub}${imgDot}</div>
+      </div>
       <div style="display:flex;gap:5px;flex-shrink:0">
         <button class="btn btn-ghost btn-sm" onclick="openEditModal(${i})">Edytuj</button>
         <button class="btn btn-danger btn-sm" onclick="deleteDraftQ(${i})">✕</button>
@@ -521,12 +534,10 @@ function vCreate(){
   <div class="form-group"><label class="inp-label">Tytuł quizu</label>
     <input class="inp" type="text" id="draft-title" placeholder="Wpisz tytuł quizu..." value="${escA(S.draftTitle)}" oninput="S.draftTitle=this.value">
   </div>
-  <div class="form-group"><label class="inp-label">Typ pytań</label>
-    <div class="type-selector">${typeCards}</div>
-  </div>
   <hr>
-  <div class="inp-label" style="margin-bottom:12px">Pytania (${S.draftQs.length})</div>
-  ${qs||`<p style="font-size:13px;color:var(--muted);margin-bottom:12px">Brak pytań — dodaj pierwsze klikając poniżej.</p>`}
+  <div class="inp-label" style="margin-bottom:4px">Pytania (${S.draftQs.length})</div>
+  <p style="font-size:11px;color:var(--muted);margin-bottom:12px">Typ pytania (ABCD / Prawda-Fałsz / Otwarte) wybierasz osobno dla każdego pytania.</p>
+  ${qs||'<p style="font-size:13px;color:var(--muted);margin-bottom:12px">Brak pytań — dodaj pierwsze klikając poniżej.</p>'}
   <button class="btn btn-secondary" onclick="openAddModal()" style="margin-bottom:20px">+ Dodaj pytanie</button>
   <hr>
   <div class="err-text${S.createErr?' show':''}">${esc(S.createErr)}</div>
@@ -536,12 +547,20 @@ function vCreate(){
   </div>`;
 }
 
+
 function vTake(){
   const q=S.quiz, qi=S.qIdx, question=q.questions[qi];
+  const qtype=question.type||(q.type||'abcd'); // per-question type, fallback to quiz-level
   const ans=S.answers[qi], revealed=(ans!==undefined&&ans!==null)&&S.showAns;
   const pct=Math.round((qi/q.questions.length)*100);
+
+  // image
+  const imgHtml=question.imageUrl
+    ?`<div class="q-img-wrap"><img src="${escA(question.imageUrl)}" alt="ilustracja" onerror="this.parentElement.style.display='none'"></div>`
+    :'';
+
   let optsHtml='';
-  if(q.type==='tf'){
+  if(qtype==='tf'){
     optsHtml=`<div class="tf-grid">${['Prawda','Fałsz'].map((o,oi)=>{
       let cls='tf-btn';
       if(ans===oi&&!revealed)cls+=' selected';
@@ -549,7 +568,7 @@ function vTake(){
       if(revealed&&ans===oi&&oi!==question.correct)cls+=' wrong';
       return `<button class="${cls}"${ans!==undefined?' disabled':''} onclick="selectAns(${oi})">${o}</button>`;
     }).join('')}</div>`;
-  } else if(q.type==='open'){
+  } else if(qtype==='open'){
     optsHtml=revealed
       ?`<div style="background:var(--s2);border:1px solid var(--border);border-radius:var(--r2);padding:14px;font-size:13px">
           <div class="inp-label" style="margin-bottom:6px">Twoja odpowiedź</div>
@@ -568,62 +587,78 @@ function vTake(){
         <span class="opt-letter">${LABELS[oi]}</span>${esc(o)}</button>`;
     }).join('')}</div>`;
   }
+
   let feedback='';
-  if(revealed&&q.type!=='open'){
+  if(revealed&&qtype!=='open'){
     const ok=ans===question.correct;
-    const cl=q.type==='tf'?['Prawda','Fałsz'][question.correct]:LABELS[question.correct]+'. '+esc((question.opts||[])[question.correct]||'');
+    const cl=qtype==='tf'?['Prawda','Fałsz'][question.correct]:LABELS[question.correct]+'. '+esc((question.opts||[])[question.correct]||'');
     feedback=`<div class="feedback-row ${ok?'feedback-ok':'feedback-err'}">${ok?'✓ Poprawnie!':'✗ Poprawna: '+cl}</div>`;
   }
-  const navBtn=(ans!==undefined)||(q.type==='open'&&revealed)
+
+  const navBtn=(ans!==undefined)||(qtype==='open'&&revealed)
     ?(qi<q.questions.length-1
       ?`<button class="btn btn-primary" onclick="nextQ()">Dalej →</button>`
       :`<button class="btn btn-primary" onclick="stopAndShowResults()">Zobacz wyniki →</button>`):'';
-  const bt=q.type==='tf'?'Prawda / Fałsz':q.type==='open'?'Otwarte':'ABCD';
+
   return `<div class="back" onclick="stopTimer();setView('list')">Wróć do listy</div>
   <div class="timer-bar-row">
-    <div style="font-size:13px;color:var(--muted2)">${esc(q.title)} · <span style="color:var(--accent)">${bt}</span></div>
+    <div style="font-size:13px;color:var(--muted2)">${esc(q.title)}</div>
     <div class="timer-wrap running" id="live-timer">⏱ ${formatTime(S.timerElapsed)}</div>
   </div>
   <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
   <div class="q-card">
     <div class="q-label">Pytanie ${qi+1} z ${q.questions.length}</div>
+    ${imgHtml}
     <div class="q-text">${esc(question.text)}</div>
     ${optsHtml}${feedback}
     <div class="nav-row">${navBtn}</div>
   </div>`;
 }
 
+
 function vResults(){
   const q=S.quiz;
-  let score=0;
-  if(q.type!=='open') S.answers.forEach((a,i)=>{if(a===q.questions[i].correct)score++;});
-  else score=S.answers.filter(a=>a&&a.trim()).length;
-  const total=q.questions.length, pct=Math.round(score/total*100);
+  let score=0, openCount=0;
+  q.questions.forEach((question,i)=>{
+    const qt=question.type||(q.type||'abcd');
+    if(qt==='open') openCount++;
+    else if(S.answers[i]===question.correct) score++;
+  });
+  const gradableTotal=q.questions.length-openCount;
+  const total=q.questions.length;
+  const pct=gradableTotal>0?Math.round(score/gradableTotal*100):0;
   let grade='',gc='var(--muted2)';
-  if(q.type==='open'){grade='Quiz otwarty — sprawdź odpowiedzi samodzielnie';}
+  if(openCount===total){grade='Quiz otwarty — sprawdź odpowiedzi samodzielnie';}
   else if(pct>=90){grade='Ocena: 6 — celujący 🏆';gc='var(--correct)';}
   else if(pct>=75){grade='Ocena: 5 — bardzo dobry ⭐';gc='var(--correct)';}
   else if(pct>=60){grade='Ocena: 4 — dobry 👍';gc='var(--accent2)';}
   else if(pct>=40){grade='Ocena: 3 — dostateczny';gc='var(--accent)';}
   else{grade='Ocena: 2 — dopuszczający';gc='var(--wrong)';}
+
   const details=q.questions.map((question,i)=>{
+    const qt=question.type||(q.type||'abcd');
     const ok=S.answers[i]===question.correct;
     let ansText='',correctText='';
-    if(q.type==='tf'){ansText=['Prawda','Fałsz'][S.answers[i]]||'—';correctText=['Prawda','Fałsz'][question.correct];}
-    else if(q.type==='open'){ansText=S.answers[i]||'(brak)';}
+    if(qt==='tf'){ansText=['Prawda','Fałsz'][S.answers[i]]||'—';correctText=['Prawda','Fałsz'][question.correct];}
+    else if(qt==='open'){ansText=S.answers[i]||'(brak)';}
     else{ansText=LABELS[S.answers[i]]+'. '+((question.opts||[])[S.answers[i]]||'—');correctText=LABELS[question.correct]+'. '+((question.opts||[])[question.correct]||'');}
-    const icon=q.type==='open'?'?':(ok?'✓':'✗');
-    const ic=q.type==='open'?'':(ok?'rd-ok':'rd-err');
+    const icon=qt==='open'?'?':(ok?'✓':'✗');
+    const ic=qt==='open'?'':(ok?'rd-ok':'rd-err');
+    const imgThumb=question.imageUrl?`<img src="${escA(question.imageUrl)}" style="width:40px;height:30px;object-fit:cover;border-radius:4px;flex-shrink:0;border:1px solid var(--border)" alt="">`:'' ;
     return `<div class="rd-row">
       <div class="rd-icon ${ic}">${icon}</div>
+      ${imgThumb}
       <div><div class="rd-q">${esc(question.text)}</div>
-      <div class="rd-ans">Twoja: ${esc(ansText)}${!ok&&q.type!=='open'?` · Poprawna: ${esc(correctText)}`:''}</div></div>
+      <div class="rd-ans">Twoja: ${esc(ansText)}${!ok&&qt!=='open'?` · Poprawna: ${esc(correctText)}`:''}</div></div>
     </div>`;
   }).join('');
+
+  const scoreLabel=openCount>0?`${score}/${gradableTotal} <span style="font-size:14px;color:var(--muted)">+ ${openCount} otwarte</span>`:`${score}<span style="font-size:28px;color:var(--muted)"> / ${total}</span>`;
+
   return `<div style="max-width:520px;margin:0 auto">
     <div class="result-hero">
-      <div class="result-score">${score}<span style="font-size:28px;color:var(--muted)"> / ${total}</span></div>
-      <div style="font-size:15px;color:var(--muted2);margin-bottom:8px">${pct}% poprawnych</div>
+      <div class="result-score">${scoreLabel}</div>
+      <div style="font-size:15px;color:var(--muted2);margin-bottom:8px">${gradableTotal>0?pct+'% poprawnych':''}</div>
       <div style="font-size:14px;font-weight:600;color:${gc}">${grade}</div>
     </div>
     <div class="result-time-box">
@@ -640,26 +675,34 @@ function vResults(){
   </div>`;
 }
 
-/* ---- Modal ---- */
-function openModal(){ document.getElementById('modal-overlay').classList.add('open'); }
-window.closeModal=function(){ document.getElementById('modal-overlay').classList.remove('open'); };
-window.handleOverlayClick=function(e){ if(e.target===document.getElementById('modal-overlay'))closeModal(); };
 
 function renderModal(){ document.getElementById('modal-content').innerHTML=buildModal(); }
 
 window.openAddModal=function(){
   S.modalMode='add'; S.modalQIdx=-1;
-  S.modalData=S.draftType==='tf'?{text:'',correct:0}:S.draftType==='open'?{text:'',answer:''}:{text:'',opts:['','','',''],correct:0};
+  S.modalData={type:'abcd',text:'',opts:['','','',''],correct:0,answer:'',imageUrl:''};
   S.modalErr=''; renderModal(); openModal();
 };
 window.openEditModal=function(i){
   S.modalMode='edit'; S.modalQIdx=i;
-  S.modalData=JSON.parse(JSON.stringify(S.draftQs[i]));
+  const base=JSON.parse(JSON.stringify(S.draftQs[i]));
+  // ensure all fields exist for backward compat
+  if(!base.type) base.type='abcd';
+  if(!base.imageUrl) base.imageUrl='';
+  if(!base.opts) base.opts=['','','',''];
+  if(base.answer===undefined) base.answer='';
+  S.modalData=base;
   S.modalErr=''; renderModal(); openModal();
 };
 
 function buildModal(){
-  const isEdit=S.modalMode==='edit', type=S.draftType, q=S.modalData;
+  const isEdit=S.modalMode==='edit', q=S.modalData, type=q.type||'abcd';
+  const typeSel=[
+    {id:'abcd',icon:'📋',label:'ABCD'},
+    {id:'tf',  icon:'⚖️',label:'Prawda / Fałsz'},
+    {id:'open',icon:'✏️',label:'Otwarte'},
+  ].map(t=>`<button class="q-type-btn${type===t.id?' selected':''}" onclick="S.modalData.type='${t.id}';if(t.id==='abcd'&&!S.modalData.opts)S.modalData.opts=['','','',''];renderModal()">
+    <span class="qti">${t.icon}</span>${t.label}</button>`).join('');
   let body='';
   if(type==='tf'){
     body=['Prawda','Fałsz'].map((o,i)=>`
@@ -668,10 +711,11 @@ function buildModal(){
         ${o}</label>`).join('');
   } else if(type==='open'){
     body=`<div class="form-group"><label class="inp-label">Wzorcowa odpowiedź (opcjonalna)</label>
-      <input class="inp" type="text" placeholder="Wpisz wzorcową odpowiedź..." value="${escA(q.answer||'')}" oninput="S.modalData.answer=this.value">
+      <input class="inp" type="text" placeholder="Wpisz wzorcową..." value="${escA(q.answer||'')}" oninput="S.modalData.answer=this.value">
     </div>`;
   } else {
-    const optRows=(q.opts||[]).map((o,oi)=>`
+    if(!q.opts||!q.opts.length) q.opts=['','','',''];
+    const optRows=q.opts.map((o,oi)=>`
       <div class="opt-input-row">
         <input type="radio" name="qcorrect" value="${oi}" ${q.correct===oi?'checked':''} onchange="S.modalData.correct=${oi};renderModal()" title="Zaznacz jako poprawną">
         <input class="inp" type="text" placeholder="Opcja ${LABELS[oi]}..." value="${escA(o)}" oninput="S.modalData.opts[${oi}]=this.value">
@@ -681,34 +725,49 @@ function buildModal(){
       <div class="opt-inputs-wrap">${optRows}</div>
       ${q.opts.length<6?`<button class="btn btn-ghost btn-sm" onclick="addOpt()" style="margin-top:4px">+ Dodaj opcję</button>`:''}`;
   }
+  const imgPreview=q.imageUrl?`<img class="modal-img-preview" src="${escA(q.imageUrl)}" alt="podgląd">`:'';
   return `<div class="modal-header">
     <div class="modal-title">${isEdit?'Edytuj pytanie':'Nowe pytanie'}</div>
     <button class="modal-close" onclick="closeModal()">✕</button>
   </div>
+  <div class="form-group"><label class="inp-label">Typ pytania</label>
+    <div class="q-type-selector">${typeSel}</div>
+  </div>
   <div class="form-group"><label class="inp-label">Treść pytania</label>
     <textarea class="inp" placeholder="Wpisz treść pytania..." oninput="S.modalData.text=this.value">${esc(q.text||'')}</textarea>
   </div>
-  <div class="form-group"><label class="inp-label">${type==='tf'?'Poprawna odpowiedź':type==='open'?'Odpowiedź':'Opcje'}</label>${body}</div>
+  <div class="form-group"><label class="inp-label">${type==='tf'?'Poprawna odpowiedź':type==='open'?'Odpowiedź':'Opcje odpowiedzi'}</label>${body}</div>
+  <hr>
+  <div class="form-group">
+    <label class="inp-label">🖼 Zdjęcie do pytania (opcjonalne)</label>
+    <input class="inp" type="text" id="img-url-inp" placeholder="Wklej URL zdjęcia (https://...)" value="${escA(q.imageUrl||'')}" oninput="S.modalData.imageUrl=this.value;updateImgPreview(this.value)">
+    <div id="img-preview-wrap" style="margin-top:8px">${imgPreview}</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:5px">Wgraj zdjęcie na <a href="https://imgur.com" target="_blank" style="color:var(--accent2)">imgur.com</a> lub <a href="https://imgbb.com" target="_blank" style="color:var(--accent2)">imgbb.com</a> i wklej link</div>
+  </div>
   <div class="err-text${S.modalErr?' show':''}">${esc(S.modalErr)}</div>
   <div class="modal-footer">
     <button class="btn btn-secondary" onclick="closeModal()">Anuluj</button>
     <button class="btn btn-primary" onclick="saveModalQ()">${isEdit?'Zapisz zmiany':'Dodaj pytanie'}</button>
   </div>`;
 }
-
 window.renderModal = renderModal;
 window.addOpt=function(){ if((S.modalData.opts||[]).length>=6)return;S.modalData.opts.push('');renderModal(); };
 window.removeOpt=function(oi){ if(S.modalData.opts.length<=2)return;S.modalData.opts.splice(oi,1);if(S.modalData.correct>=S.modalData.opts.length)S.modalData.correct=0;renderModal(); };
 window.saveModalQ=function(){
-  const q=S.modalData;
+  const q=S.modalData, type=q.type||'abcd';
   if(!(q.text||'').trim()){S.modalErr='Wpisz treść pytania.';renderModal();return;}
-  if(S.draftType==='abcd'){
-    if((q.opts||[]).filter(o=>o.trim()).length<2){S.modalErr='Min. 2 opcje.';renderModal();return;}
+  if(type==='abcd'){
+    if((q.opts||[]).filter(o=>o.trim()).length<2){S.modalErr='Min. 2 opcje odpowiedzi.';renderModal();return;}
     if(!(q.opts[q.correct]||'').trim()){S.modalErr='Zaznaczona poprawna opcja jest pusta.';renderModal();return;}
   }
   if(S.modalMode==='edit') S.draftQs[S.modalQIdx]=JSON.parse(JSON.stringify(q));
   else S.draftQs.push(JSON.parse(JSON.stringify(q)));
   closeModal(); render();
+};
+window.updateImgPreview=function(url){
+  const wrap=document.getElementById('img-preview-wrap');
+  if(!wrap)return;
+  wrap.innerHTML=url?`<img class="modal-img-preview" src="${url}" alt="podgląd">`:'';
 };
 
 /* ---- Actions ---- */
@@ -720,15 +779,9 @@ window.doLogin=function(){
 };
 window.logout=function(){S.isAdmin=false;setView('list');};
 window.goList=function(){S.loginErr=false;setView('list');};
-window.goCreate=function(){S.draftTitle='';S.draftType='abcd';S.draftQs=[];S.createErr='';setView('create-quiz');};
+window.goCreate=function(){S.draftTitle='';S.draftQs=[];S.createErr='';setView('create-quiz');};
 window.cancelCreate=function(){S.createErr='';setView('admin-panel');};
-window.setDraftType=function(t){
-  if(S.draftQs.length>0&&S.draftType!==t){
-    if(!confirm('Zmiana typu usunie dodane pytania. Kontynuować?'))return;
-    S.draftQs=[];
-  }
-  S.draftType=t; render();
-};
+
 window.deleteDraftQ=function(i){S.draftQs.splice(i,1);render();};
 window.deleteQuiz=async function(id){
   if(!confirm('Na pewno usunąć ten quiz? Zniknie dla wszystkich.'))return;
@@ -740,7 +793,7 @@ window.saveQuiz=async function(){
   if(el) S.draftTitle=el.value;
   if(!(S.draftTitle||'').trim()){S.createErr='Wpisz tytuł quizu.';render();return;}
   if(S.draftQs.length===0){S.createErr='Dodaj co najmniej jedno pytanie.';render();return;}
-  const quiz={title:S.draftTitle.trim(),type:S.draftType,questions:S.draftQs.map(q=>({...q}))};
+  const quiz={title:S.draftTitle.trim(),questions:S.draftQs.map(q=>({...q}))};
   try{
     console.log('[Firestore] Zapisywanie quizu...', quiz);
     await fsAdd(quiz);
@@ -785,7 +838,13 @@ window.stopTimer=function(){
 }
 window.startQuiz=function(id){
   const q=S.quizzes.find(q=>q.id===id);if(!q)return;
-  S.quiz=q;S.qIdx=0;S.answers=new Array(q.questions.length).fill(undefined);S.showAns=false;
+  // Deep copy quiz and shuffle questions (Fisher-Yates)
+  const shuffled=JSON.parse(JSON.stringify(q));
+  for(let i=shuffled.questions.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [shuffled.questions[i],shuffled.questions[j]]=[shuffled.questions[j],shuffled.questions[i]];
+  }
+  S.quiz=shuffled;S.qIdx=0;S.answers=new Array(shuffled.questions.length).fill(undefined);S.showAns=false;
   startTimer();
   setView('take-quiz');
 };
