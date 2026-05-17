@@ -542,11 +542,7 @@ function initCtrl() {
     ctx.font=`${Math.max(10,10*sc)}px Orbitron,monospace`;
     ctx.textAlign='left'; ctx.fillText(`${WW}×${WH}`,ox+8,oy+sh-6);
 
-    // F1 hint on canvas when showShapes=false
-    if(!S.showShapes){
-      ctx.fillStyle='rgba(255,107,53,0.7)'; ctx.font='11px Orbitron,monospace'; ctx.textAlign='center';
-      ctx.fillText('F1 – KSZTAŁTY UKRYTE W PROJEKCJI',ox+sw/2,oy+20);
-    }
+
 
     for(const s of S.shapes)    drawEdSh(s);
     for(const sp of S.spawners) drawEdSp(sp);
@@ -649,16 +645,7 @@ function initProj() {
   const pc=document.getElementById('pc');
   const ctx=pc.getContext('2d');
 
-  // Floating F1 hint
-  const hint=document.createElement('div');
-  Object.assign(hint.style,{
-    position:'fixed',bottom:'18px',right:'18px',
-    fontFamily:'Orbitron,monospace',fontSize:'10px',letterSpacing:'.1em',
-    color:'rgba(0,229,255,0.35)',pointerEvents:'none',zIndex:'99',
-    transition:'color .3s',
-  });
-  hint.textContent='F1 · POKAŻ/UKRYJ KSZTAŁTY';
-  document.body.appendChild(hint);
+
 
   function resize(){pc.width=window.innerWidth;pc.height=window.innerHeight;}
   resize();
@@ -676,7 +663,6 @@ function initProj() {
     if(e.key==='F1'){
       e.preventDefault();
       localShowShapes=!localShowShapes;
-      hint.style.color=localShowShapes?'rgba(0,229,255,0.35)':'rgba(255,107,53,0.7)';
     }
   });
 
@@ -819,12 +805,7 @@ function initProj() {
       return true;
     });
 
-    // Hidden shapes overlay
-    if(!showS&&PS.running){
-      ctx.fillStyle='rgba(255,107,53,0.18)';
-      ctx.font='11px Orbitron,monospace';ctx.textAlign='center';
-      ctx.fillText('F1 · KSZTAŁTY UKRYTE',W/2,22);
-    }
+
   }
 
   function drawCalib(W,H){
@@ -846,7 +827,7 @@ function initProj() {
     ctx.fillStyle='rgba(255,255,255,0.22)';ctx.font='17px Syne,sans-serif';ctx.textAlign='center';
     ctx.fillText('TRYB KALIBRACJI  ·  Rozmieść kształty na kontrolerze',W/2,H/2-12);
     ctx.fillStyle='rgba(255,255,255,0.15)';ctx.font='12px Orbitron,monospace';
-    ctx.fillText('DBLCLICK → PEŁNY EKRAN  ·  START → SYMULACJA  ·  F1 → POKAŻ/UKRYJ',W/2,H/2+14);
+    ctx.fillText('DBLCLICK → PEŁNY EKRAN  ·  START → SYMULACJA',W/2,H/2+14);
   }
 
   function drawProjSh(ctx,s,sx,sy,running){
