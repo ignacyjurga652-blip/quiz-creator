@@ -3031,12 +3031,38 @@ function renderAll(){
   clearTimers();
   const q=document.getElementById('presetSearch').value.trim().toLowerCase();
   const now=Date.now();
+  const TWO_DAYS=2*86400000;
   let list=getActiveEvents().filter(p=>!q||p.title.toLowerCase().includes(q));
   if(sortMode==='nearest')list.sort((a,b)=>Math.abs(new Date(a.date)-now)-Math.abs(new Date(b.date)-now));
   else if(sortMode==='farthest')list.sort((a,b)=>new Date(b.date)-new Date(a.date));
   else list.sort((a,b)=>a.title.localeCompare(b.title,'pl'));
+
   const pg=document.getElementById('presetGrid');pg.innerHTML='';
-  list.forEach((p,i)=>{const c=makeCard(p,false);c.style.animationDelay=i*.04+'s';pg.appendChild(c);});
+
+  // Minione (w oknie 2 dni) najpierw, potem przyszłe
+  const past=list.filter(p=>new Date(p.date).getTime()<=now);
+  const future=list.filter(p=>new Date(p.date).getTime()>now);
+
+  [...past,...future].forEach((p,i)=>{
+    const c=makeCard(p,false);
+    c.style.animationDelay=i*.04+'s';
+
+    // Dla minionych — dodaj badge z odliczaniem do zniknięcia
+    const t=new Date(p.date).getTime();
+    if(t<=now){
+      const left=TWO_DAYS-(now-t);
+      if(left>0){
+        const h=Math.floor(left/3600000);
+        const m=String(Math.floor(left%3600000/60000)).padStart(2,'0');
+        const badge=document.createElement('div');
+        badge.style.cssText='display:inline-flex;align-items:center;gap:6px;background:rgba(76,201,122,0.10);border:1px solid rgba(76,201,122,0.25);border-radius:99px;padding:3px 10px 3px 8px;font-family:var(--mono);font-size:8px;letter-spacing:.14em;color:#4cc97a;margin-bottom:8px;width:fit-content;';
+        badge.innerHTML='<span style="width:5px;height:5px;border-radius:50%;background:#4cc97a;display:inline-block;flex-shrink:0;animation:fc-pulse 1.2s ease-in-out infinite;box-shadow:0 0 6px #4cc97a;"></span> WŁAŚNIE SIĘ ODBYŁO &nbsp;·&nbsp; zniknie za '+h+'h '+m+'m';
+        c.insertBefore(badge,c.firstChild);
+      }
+    }
+    pg.appendChild(c);
+  });
+
   renderCustom(false);
   updateNextUp();
 }
@@ -5504,89 +5530,52 @@ const FEATURED_CONFIG = {
   title: 'Moje wielkie wydarzenie',
 
   // Data docelowa — format: 'RRRR-MM-DDTHH:MM:SS'
-  // Przykłady:
-  //   '2025-12-25T00:00:00'  — Boże Narodzenie
-  //   '2026-06-11T20:00:00'  — konkretna data i godzina
   targetDate: '2026-12-31T23:59:59',
 
-  // Data startowa (opcjonalnie) — używana do obliczania % progresu
-  // Zostaw null jeśli nie chcesz paska progresu
+  // Data startowa (opcjonalnie) — pasek progresu. null = wyłącz
   startDate: '2026-01-01T00:00:00',
 
-  // Kolor akcentu — podaj kolor w hex
-  // Przykłady: '#c9a84c' (złoty), '#4c7bc9' (niebieski), '#c94c7a' (różowy)
-  //            '#4cc97a' (zielony), '#8a6cc9' (fioletowy), '#c94c4c' (czerwony)
+  // Kolor akcentu: '#c9a84c' złoty | '#4c7bc9' niebieski | '#c94c7a' różowy
+  //               '#4cc97a' zielony | '#8a6cc9' fioletowy | '#c94c4c' czerwony
   color: '#c9a84c',
 
-  // Krótki podtytuł pod tytułem (opcjonalnie, zostaw '' żeby ukryć)
+  // Podtytuł ('' żeby ukryć)
   subtitle: 'Odliczanie do wyjątkowego momentu',
 
-  // Wiadomość gdy odliczanie dobiegnie końca (zostaw '' dla domyślnej)
+  // Wiadomość po upłynięciu czasu
   pastMessage: '✓ Cel osiągnięty!',
 
 };
 
-// ───────────────────────────────────────────────────────────
-//  KONIEC KONFIGURACJI — nie zmieniaj kodu poniżej
-// ───────────────────────────────────────────────────────────
+// ── KONIEC KONFIGURACJI ─────────────────────────────────────
 
 (function initFeatured() {
-  const cfg = FEATURED_CONFIG;
-
-  // Hide if disabled
+  const cfg  = FEATURED_CONFIG;
   const wrap = document.getElementById('featuredWrap');
   if (!wrap) return;
+
   if (!cfg.enabled) {
     const box = document.getElementById('featuredBox');
     if (box) {
-      // Inject keyframes into <head> if not already there
       if (!document.getElementById('fc-pulse-style')) {
         const st = document.createElement('style');
         st.id = 'fc-pulse-style';
-        st.textContent = `
-          @keyframes fcPulse {
-            0%,100% { transform:scale(1);    opacity:.5; filter:drop-shadow(0 0 0px rgba(201,168,76,0)); }
-            50%      { transform:scale(1.18); opacity:.9; filter:drop-shadow(0 0 16px rgba(201,168,76,.5)); }
-          }
-        `;
+        st.textContent = '@keyframes fcPulse{0%,100%{transform:scale(1);opacity:.5;filter:drop-shadow(0 0 0px rgba(201,168,76,0))}50%{transform:scale(1.18);opacity:.9;filter:drop-shadow(0 0 16px rgba(201,168,76,.5))}}';
         document.head.appendChild(st);
       }
-
       box.innerHTML = `
-        <div style="
-          display:flex; flex-direction:column; align-items:center;
-          justify-content:center; text-align:center;
-          padding:44px 28px 40px; gap:0;
-        ">
-          <span style="
-            font-size:2.2rem; display:block; margin-bottom:22px;
-            animation:fcPulse 3s ease-in-out infinite;
-          ">⌛</span>
-
-          <div style="
-            font-family:'Cormorant Garamond',Georgia,serif;
-            font-size:1.75rem; font-weight:300; font-style:italic;
-            color:rgba(232,228,220,0.75); margin-bottom:14px; line-height:1.25;
-          ">Czas jest najcenniejszą<br>walutą życia</div>
-
-          <div style="
-            font-family:'Cormorant Garamond',Georgia,serif;
-            font-size:1rem; font-weight:300; font-style:italic;
-            color:rgba(232,228,220,0.28); max-width:360px;
-            line-height:1.75; letter-spacing:0.01em;
-          ">„Nie trać czasu na żałowanie przeszłości<br>
-          ani niepokój o przyszłość —<br>
-          jedyne, co masz naprawdę, to chwila obecna"</div>
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:44px 28px 40px;gap:0;">
+          <span style="font-size:2.2rem;display:block;margin-bottom:22px;animation:fcPulse 3s ease-in-out infinite;">⌛</span>
+          <div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:1.75rem;font-weight:300;font-style:italic;color:rgba(232,228,220,0.75);margin-bottom:14px;line-height:1.25;">Czas jest najcenniejszą<br>walutą życia</div>
+          <div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:1rem;font-weight:300;font-style:italic;color:rgba(232,228,220,0.28);max-width:360px;line-height:1.75;">„Nie trać czasu na żałowanie przeszłości<br>ani niepokój o przyszłość —<br>jedyne, co masz naprawdę, to chwila obecna"</div>
         </div>`;
     }
     return;
   }
 
-  // Apply accent color
   const box = document.getElementById('featuredBox');
   if (box) box.style.setProperty('--accent-color', cfg.color || '#c9a84c');
 
-  // Static text
   const t = document.getElementById('fc_title');
   const s = document.getElementById('fc_subtitle');
   if (t) t.textContent = cfg.title || '—';
@@ -5595,13 +5584,10 @@ const FEATURED_CONFIG = {
       const dt = new Date(cfg.targetDate).toLocaleDateString('pl-PL',
         {day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'});
       s.innerHTML = cfg.subtitle + ' &nbsp;·&nbsp; <span>' + dt + '</span>';
-      s.style.display = '';   // ← make sure it's visible
-    } else {
-      s.style.display = 'none';
-    }
+      s.style.display = '';
+    } else { s.style.display = 'none'; }
   }
 
-  // Cache all DOM refs ONCE — no innerHTML rebuilding inside tick
   const elD    = document.getElementById('fc_d');
   const elH    = document.getElementById('fc_h');
   const elM    = document.getElementById('fc_m');
@@ -5629,7 +5615,6 @@ const FEATURED_CONFIG = {
     const diff = target - now;
 
     if (diff <= 0) {
-      // PAST
       if (!fired) { fired = true; try { boom(); } catch(e){} }
       if (elBody) elBody.style.display = 'none';
       if (elPast) elPast.style.display = '';
@@ -5644,14 +5629,13 @@ const FEATURED_CONFIG = {
       return;
     }
 
-    // FUTURE — only textContent updates, no innerHTML, no DOM creation
     if (elBody) elBody.style.display = '';
     if (elPast) elPast.style.display = 'none';
 
     const days  = Math.floor(diff / 86400000);
     const hours = Math.floor(diff % 86400000 / 3600000);
-    const mins  = Math.floor(diff % 3600000  / 60000);
-    const secs  = Math.floor(diff % 60000    / 1000);
+    const mins  = Math.floor(diff % 3600000 / 60000);
+    const secs  = Math.floor(diff % 60000 / 1000);
     const tsecs = Math.floor(diff / 1000);
 
     if (elD) elD.textContent = pad(days);
@@ -5671,11 +5655,9 @@ const FEATURED_CONFIG = {
     if (elSM) elSM.textContent = loc(diff / 60000);
   }
 
-  tick(); // run immediately
+  tick();
   setInterval(tick, 1000);
 })();
-
-
 // ═══════════════════════════════════════════════════════════
 //  ONLINE USERS COUNTER — Firebase Realtime Database
 // ═══════════════════════════════════════════════════════════
@@ -6694,23 +6676,27 @@ function ssDrawCanvas(date) {
   const ctx = canvas.getContext('2d');
   const H = 420, cx = W/2, cy = H/2;
 
-  // ── LOGARITHMIC SCALE ──────────────────────────────────────
-  // Maps real AU to canvas radius using log scale so ALL planets
-  // are clearly separated and visible — inner planets won't collapse
-  // into the Sun. Tuned so Mercury=~38px, Neptune=~(maxR)px.
-  const maxR    = Math.min(cx, cy) * 0.90;
-  const minAU   = 0.30, maxAU = 32;
-  const logMin  = Math.log(minAU), logMax = Math.log(maxAU);
+  // ── FIXED RADII PER PLANET ────────────────────────────────
+  // Each planet gets its own guaranteed canvas radius (% of maxR).
+  // This ensures ALL planets are always clearly separated and visible.
+  const maxR = Math.min(cx, cy) * 0.90;
 
-  function auToR(au) {
-    return ((Math.log(au) - logMin) / (logMax - logMin)) * maxR;
-  }
-  function auToXY(ax, ay) {
-    const dist  = Math.sqrt(ax*ax + ay*ay);
+  // Fixed orbit radii as fraction of maxR
+  // Mercury=14%, Venus=21%, Earth=29%, Mars=38%,
+  // Jupiter=50%, Saturn=62%, Uranus=75%, Neptune=88%
+  const PLANET_R_PCT = [0.14, 0.21, 0.29, 0.38, 0.50, 0.62, 0.75, 0.88];
+
+  function auToXY(ax, ay, planetIdx) {
+    const dist = Math.sqrt(ax*ax + ay*ay);
     if (dist < 0.001) return [cx, cy];
-    const r     = auToR(dist);
+    const r     = maxR * (PLANET_R_PCT[planetIdx] || 0.5);
     const angle = Math.atan2(ay, ax);
     return [cx + r * Math.cos(angle), cy - r * Math.sin(angle)];
+  }
+
+  // auToR for orbit rings (same fixed radii)
+  function auToR(au, idx) {
+    return maxR * (PLANET_R_PCT[idx] || 0.5);
   }
 
   // Background
@@ -6722,22 +6708,22 @@ function ssDrawCanvas(date) {
     ctx.beginPath(); ctx.arc(s.x*W, s.y*H, s.r*0.5, 0, Math.PI*2); ctx.fill();
   });
 
-  // Orbit rings (use log scale radii)
+  // Orbit rings — one per planet with fixed radius
   SS_PLANETS.forEach((p, i) => {
-    const r = auToR(p.a);
+    const r = maxR * PLANET_R_PCT[i];
     ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2);
-    // Alternate subtle/normal rings
-    ctx.strokeStyle = i < 4 ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.04)';
+    ctx.strokeStyle = i < 4 ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.04)';
     ctx.lineWidth = 1; ctx.stroke();
   });
 
-  // AU distance labels on rings
-  [0.4, 1, 5, 10, 20, 30].forEach(au => {
-    const r = auToR(au);
+  // AU labels on each ring
+  const AU_LABELS = ['0.4', '0.7', '1.0', '1.5', '5.2', '9.5', '19.2', '30.1'];
+  SS_PLANETS.forEach((p, i) => {
+    const r = maxR * PLANET_R_PCT[i];
     ctx.font = '7px Space Mono';
-    ctx.fillStyle = 'rgba(255,255,255,0.15)';
+    ctx.fillStyle = 'rgba(255,255,255,0.18)';
     ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    ctx.fillText(au + ' AU', cx + r + 2, cy);
+    ctx.fillText(AU_LABELS[i] + ' AU', cx + r + 3, cy - 4);
   });
 
   // Sun glow
@@ -6758,9 +6744,9 @@ function ssDrawCanvas(date) {
   ctx.fillText('Słońce', cx, cy - 16);
 
   ssDots = [];
-  SS_PLANETS.forEach(p => {
+  SS_PLANETS.forEach((p, i) => {
     const pos     = ssGetPos(p, date);
-    const [px, py] = auToXY(pos.x, pos.y);
+    const [px, py] = auToXY(pos.x, pos.y, i);
 
     // Planet draw radius — bigger so inner ones are visible
     const drawR = p.a < 1   ? 5.5    // Mercury / Venus / Earth-ish
@@ -6815,7 +6801,7 @@ function ssDrawCanvas(date) {
       name: p.name, a: p.a,
       angle: ssGetAngle(p, date).toFixed(1),
       distKm: (p.a * SS_AU).toFixed(0),
-      period: p.period
+      period: p.period, idx: i
     });
   });
 
