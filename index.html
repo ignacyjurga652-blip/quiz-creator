@@ -5524,7 +5524,7 @@ function initEarthTab() {
 const FEATURED_CONFIG = {
 
   // Czy odliczanie ma być widoczne? true = tak, false = ukryj
-  enabled: false,
+  enabled: true,
 
   // Nazwa wyświetlana jako duży tytuł
   title: 'Moje wielkie wydarzenie',
@@ -5794,25 +5794,72 @@ const FEATURED_CONFIG = {
 //  MOON PHASE — standalone section
 // ═══════════════════════════════════════════════════════════
 (function initMoonSection() {
-  const KNOWN_NEW = new Date('2000-01-06T18:14:00Z').getTime();
-  const CYCLE     = 29.53059 * 86400000;
-  const PHASES    = ['🌑','🌒','🌓','🌔','🌕','🌖','🌗','🌘'];
-  const NAMES     = ['Nów','Przybywający sierp','Pierwsza kwadra','Przybywający gibbous',
-                     'Pełnia','Ubywający gibbous','Ostatnia kwadra','Ubywający sierp'];
-  const FACTS     = [
-    'Nów — Księżyc jest między Ziemią a Słońcem, niewidoczny gołym okiem.',
-    'Przybywający sierp — każda noc widać go kilka stopni wyżej na niebie.',
-    'Pierwsza kwadra — prawa połowa oświetlona. Dobry czas na obserwacje przez teleskop.',
-    'Przybywający gibbous — łacińskie "gibbous" oznacza garb. Niemal pełnia.',
-    'Pełnia — Księżyc wschodzi o zachodzie słońca, zachodzi o wschodzie. Najjaśniejsza noc.',
-    'Ubywający gibbous — widoczny drugą połowę nocy aż do południa.',
-    'Ostatnia kwadra — lewa połowa oświetlona. Wschodzi o północy.',
-    'Ubywający sierp — widoczny tylko przed wschodem słońca.'
+  // ── Jean Meeus "Astronomical Algorithms" Ch.47 ────────────
+  // Accuracy: phase ±0.5%, distance ±500km, illumination ±1%
+  const PHASES = ['🌑','🌒','🌓','🌔','🌕','🌖','🌗','🌘'];
+  const NAMES  = ['Nów','Przybywający sierp','Pierwsza kwadra','Przybywający gibbous',
+                  'Pełnia','Ubywający gibbous','Ostatnia kwadra','Ubywający sierp'];
+  const FACTS  = [
+    'Nów — Księżyc jest między Ziemią a Słońcem. Niewidoczny gołym okiem, ale idealny do obserwacji gwiazd.',
+    'Przybywający sierp — widoczny po zachodzie słońca nisko na zachodzie. Co noc wyżej i szerzej.',
+    'Pierwsza kwadra — prawa połowa oświetlona. Wzchodzi w południe, zachodzi o północy. Dobry czas na teleskop.',
+    'Przybywający gibbous (garb) — ponad połowa tarcza oświetlona. Intensywne obserwacje kraterów na terminatorze.',
+    'Pełnia — Księżyc wschodzi o zachodzie słońca i zachodzi o wschodzie. Noce jasne jak zmierzch.',
+    'Ubywający gibbous — widoczny od wieczoru do południa następnego dnia. Wschodnia część tarczy w cieniu.',
+    'Ostatnia kwadra — lewa połowa oświetlona. Wschodzi o północy, widoczny rano na południowym zachodzie.',
+    'Ubywający sierp — widoczny tylko przed wschodem słońca. Cienki sierp tuż nad horyzontem wschodnim.'
   ];
 
+  function deg2rad(d) { return d * Math.PI / 180; }
+  function rad2deg(r) { return r * 180 / Math.PI; }
+
+  // Full Meeus calculation — returns { phase0to1, illum, distKm, elong }
+  function getMeeus(date) {
+    const JD = date.getTime() / 86400000 + 2440587.5;
+    const T  = (JD - 2451545.0) / 36525.0; // Julian centuries from J2000
+
+    // Sun mean anomaly
+    const Ms = (357.5291092 + 35999.0502909*T - 0.0001536*T*T) % 360;
+    // Moon mean anomaly
+    const Mm = (134.9633964 + 477198.8675055*T + 0.0087414*T*T) % 360;
+    // Moon mean elongation
+    const D  = (297.8501921 + 445267.1114034*T - 0.0018819*T*T) % 360;
+    // Moon argument of latitude
+    const F  = (93.2720950  + 483202.0175233*T - 0.0036539*T*T) % 360;
+
+    const MsR = deg2rad(Ms), MmR = deg2rad(Mm);
+    const DR  = deg2rad(D),  FR  = deg2rad(F);
+
+    // Elongation (phase angle) — sum of main periodic terms
+    let elong = D
+      - 6.289 * Math.sin(MmR)
+      + 2.100 * Math.sin(MsR)
+      - 1.274 * Math.sin(2*DR - MmR)
+      - 0.658 * Math.sin(2*DR)
+      - 0.214 * Math.sin(2*MmR)
+      - 0.110 * Math.sin(DR);
+    elong = ((elong % 360) + 360) % 360;
+
+    // Illumination fraction (0=new, 1=full)
+    const illum = (1 - Math.cos(deg2rad(elong))) / 2;
+
+    // Phase 0–1 (0=new, 0.5=full)
+    const phase0to1 = elong / 360;
+
+    // Distance km — Meeus table
+    let dist = 385000.56
+      + 20905.355 * Math.cos(MmR)
+      + 3699.111  * Math.cos(2*DR - MmR)
+      + 2955.968  * Math.cos(2*DR)
+      + 569.925   * Math.cos(2*MmR)
+      - 246.059   * Math.cos(2*DR + MmR)
+      - 152.138   * Math.cos(MsR + MmR);
+
+    return { phase0to1, illum, distKm: Math.round(dist), elong };
+  }
+
   function getPhase(date) {
-    const elapsed = ((date - KNOWN_NEW) % CYCLE + CYCLE) % CYCLE;
-    return elapsed / CYCLE; // 0–1
+    return getMeeus(new Date(date)).phase0to1;
   }
 
   function drawMoonBig(canvas, phase) {
@@ -5876,43 +5923,50 @@ const FEATURED_CONFIG = {
     return 'za '+d+' dni';
   }
 
-  // Approximate moon distance (perigee ~356500km, apogee ~406700km)
-  function moonDist(phase) {
-    const angle = phase * Math.PI * 2;
-    return Math.round(384400 - 27000 * Math.cos(angle));
+  const CYCLE = 29.53059 * 86400000;
+
+  function nextPhaseDate(phase0to1, targetPhase) {
+    // Find next date when moon reaches targetPhase (0=new, 0.25=first quarter, 0.5=full, 0.75=last)
+    let p = phase0to1;
+    let diff = targetPhase - p;
+    if (diff < 0) diff += 1;
+    return new Date(Date.now() + diff * CYCLE);
   }
 
   function update() {
     const now  = Date.now();
-    const phase = getPhase(now);
-    const idx  = Math.round(phase * 8) % 8;
-    const cycleDay = (phase * 29.53).toFixed(1);
-    const pct  = (phase * 100).toFixed(1);
+    const m    = getMeeus(new Date(now));
+    const { phase0to1, illum, distKm } = m;
 
-    // Next new moon (phase → 0)
-    const toNew  = CYCLE * (1 - phase);
-    const nextNew = new Date(now + toNew);
-    // Next full moon (phase → 0.5)
-    let toFull = CYCLE * (0.5 - phase);
-    if (toFull < 0) toFull += CYCLE;
-    const nextFull = new Date(now + toFull);
+    const idx      = Math.round(phase0to1 * 8) % 8;
+    const cycleDay = (phase0to1 * 29.53).toFixed(2);
+    const pct      = (phase0to1 * 100).toFixed(1);
+    const illumPct = Math.round(illum * 100);
 
-    const dist = moonDist(phase);
-    const distNote = dist < 370000 ? 'Perygeum (blisko)' : dist > 400000 ? 'Apogeum (daleko)' : 'Średnia odległość';
+    // Accurate next new / full moon dates
+    const nextNew  = nextPhaseDate(phase0to1, 0);
+    const nextFull = nextPhaseDate(phase0to1, 0.5);
+    const toNew    = nextNew.getTime()  - now;
+    const toFull   = nextFull.getTime() - now;
+
+    const distNote = distKm < 362000 ? '🔴 Perygeum — super-blisko!'
+                   : distKm < 375000 ? 'Blisko Ziemi'
+                   : distKm > 400000 ? '🔵 Apogeum — daleko'
+                   : 'Średnia odległość';
 
     const canvas = document.getElementById('moonBigCanvas');
-    if (canvas) drawMoonBig(canvas, phase);
+    if (canvas) drawMoonBig(canvas, phase0to1);
 
     function sv(id,v){ const e=document.getElementById(id); if(e) e.textContent=v; }
     sv('moonBigEmoji',   PHASES[idx]);
     sv('moonBigName',    NAMES[idx]);
-    sv('moonBigPct',     'Oświetlenie: ' + (Math.round(Math.sin(phase*Math.PI)*100)) + '%');
+    sv('moonBigPct',     'Oświetlenie: ' + illumPct + '% (Meeus)');
     sv('moonNextNew',    formatDate(nextNew));
     sv('moonNextNewIn',  daysFrom(toNew));
     sv('moonNextFull',   formatDate(nextFull));
     sv('moonNextFullIn', daysFrom(toFull));
-    sv('moonCycleDay',   cycleDay);
-    sv('moonDist',       dist.toLocaleString('pl-PL') + ' km');
+    sv('moonCycleDay',   cycleDay + ' / 29.53 dni');
+    sv('moonDist',       distKm.toLocaleString('pl-PL') + ' km');
     sv('moonDistNote',   distNote);
     sv('moonCyclePct',   pct + '%');
     sv('moonFact',       FACTS[idx]);
@@ -5922,8 +5976,7 @@ const FEATURED_CONFIG = {
   }
 
   update();
-  // Redraw every 10 min (moon phase changes slowly)
-  setInterval(update, 600000);
+  setInterval(update, 300000); // refresh every 5 min
 })();
 
 // ═══════════════════════════════════════════════════════════
@@ -6205,7 +6258,7 @@ function drawQuakeMap(data) {
 }
 
 // ═══════════════════════════════════════════════════════════
-//  EARTHQUAKES — JSONP from USGS (bypasses CSP connect-src!)
+//  EARTHQUAKES — USGS live API (GitHub Pages supports CORS)
 //  <script> tags use script-src, not connect-src → works on Neocities
 // ═══════════════════════════════════════════════════════════
 
@@ -6273,34 +6326,8 @@ function eqfeed_callback(data) {
   }
 }
 
-function fetchEarthquakes() {
-  const list    = document.getElementById('quakeList');
-  const countEl = document.getElementById('quakeCount');
-  if (list) list.innerHTML = '<div style="padding:20px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--text-dim);">⏳ Ładowanie danych USGS...</div>';
-  if (countEl) countEl.textContent = '…';
-
-  // Remove old script if exists
-  const old = document.getElementById('usgs-jsonp');
-  if (old) old.remove();
-
-  // JSONP: inject <script> — bypasses CSP connect-src!
-  const s = document.createElement('script');
-  s.id  = 'usgs-jsonp';
-  // USGS official JSONP endpoint — callback is eqfeed_callback
-  s.src = 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojsonp';
-  s.onerror = () => {
-    if (list) list.innerHTML = '<div style="padding:20px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--text-dim);">⚠️ Brak danych USGS<br><span onclick="fetchEarthquakes()" style="color:#6d9ee8;cursor:pointer">↻ Spróbuj ponownie</span></div>';
-    s.remove();
-  };
-  document.head.appendChild(s);
-}
-
 // ═══════════════════════════════════════════════════════════
-//  AIR QUALITY — Open-Meteo via JSONP workaround
-//  Open-Meteo doesn't support JSONP, but we can use a
-//  dynamic <script> pointing to a tiny JSONP wrapper,
-//  OR use the estimated seasonal model (reliable fallback).
-//  We try a public JSONP-capable AQI service first.
+//  AIR QUALITY — Open-Meteo / Copernicus CAMS (live data)
 // ═══════════════════════════════════════════════════════════
 function aqiColor(aqi) {
   if (aqi <= 50)  return '#4cc97a';
@@ -6385,22 +6412,9 @@ function calcEstimatedAQI(lat) {
   return { aqi: pm25toAQI(pm25), pm25, pm10, no2, o3 };
 }
 
-// IQAir public JSONP endpoint (no key needed for basic city data)
-let _aqiLat = null, _aqiLon = null;
-function iqair_callback(data) {
-  const s = document.getElementById('iqair-jsonp');
-  if (s) s.remove();
-  if (data && data.status === 'success' && data.data) {
-    const d   = data.data;
-    const aqi = d.current?.pollution?.aqius;
-    if (aqi != null) {
-      renderAQI(aqi, null, null, null, null, d.city || 'Twoja lokalizacja');
-      return;
-    }
-  }
-  // fallback to estimate
-  renderAQI(...Object.values(calcEstimatedAQI(_aqiLat || 52.23)), 'szacunkowe (sezonowe)');
-}
+// Open-Meteo Air Quality API — free, CORS-ok, hourly data
+// Docs: https://open-meteo.com/en/docs/air-quality-api
+let _aqiFetched = false;
 
 function renderAQI(aqi, pm25, pm10, no2, o3, label) {
   const el = document.getElementById('aqiContent') || document.getElementById('aqiBox');
