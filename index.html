@@ -1203,6 +1203,126 @@ footer{text-align:center;padding:40px 24px 60px;font-family:var(--mono);font-siz
   .ss-map-controls { margin-left:0; }
 }
 
+
+/* ═══════════════════════════════════════════════════
+   NASA APOD
+═══════════════════════════════════════════════════ */
+.apod-section { margin-bottom: 80px; position: relative; z-index: 1; }
+
+.apod-card {
+  background: #030612;
+  border: 1px solid rgba(76,123,201,0.2);
+  border-radius: 24px; overflow: hidden; position: relative;
+}
+.apod-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, #4c7bc9, #8a6cc9, #c9a84c, #c94c4c, #4cc9c9);
+  background-size: 300% 100%; animation: apod-border 8s linear infinite;
+}
+@keyframes apod-border { 0%{background-position:0% 50%} 100%{background-position:300% 50%} }
+
+.apod-image-wrap {
+  width: 100%; aspect-ratio: 16/9; overflow: hidden;
+  position: relative; background: #03060f;
+  display: flex; align-items: center; justify-content: center;
+}
+.apod-image-wrap img {
+  width: 100%; height: 100%; object-fit: cover;
+  transition: transform 6s ease; cursor: zoom-in;
+}
+.apod-image-wrap img:hover { transform: scale(1.04); }
+.apod-video-wrap {
+  width: 100%; aspect-ratio: 16/9;
+  position: relative; background: #03060f;
+}
+.apod-video-wrap iframe {
+  width: 100%; height: 100%; border: none;
+}
+.apod-loading {
+  width: 100%; aspect-ratio: 16/9; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 16px;
+  background: radial-gradient(ellipse at center, #060a1e, #030612);
+}
+.apod-loading-spinner {
+  width: 40px; height: 40px; border: 2px solid rgba(76,123,201,0.2);
+  border-top-color: #4c7bc9; border-radius: 50%;
+  animation: apod-spin 1s linear infinite;
+}
+@keyframes apod-spin { to { transform: rotate(360deg); } }
+
+.apod-overlay {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: linear-gradient(transparent, rgba(3,6,18,0.9));
+  padding: 40px 28px 20px;
+  pointer-events: none;
+}
+.apod-date-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: rgba(3,6,18,0.8); border: 1px solid rgba(76,123,201,0.3);
+  border-radius: 99px; padding: 4px 12px;
+  font-family: var(--mono); font-size: 9px; letter-spacing: .18em;
+  color: #6d9ee8; text-transform: uppercase; margin-bottom: 8px;
+}
+.apod-title-over {
+  font-family: var(--serif); font-size: 1.6rem; font-weight: 300;
+  color: #fff; line-height: 1.2; text-shadow: 0 2px 20px rgba(0,0,0,0.8);
+}
+
+.apod-body { padding: 24px 28px 28px; }
+.apod-meta {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.apod-copyright {
+  font-family: var(--mono); font-size: 9px; color: rgba(255,255,255,0.3);
+  letter-spacing: .1em;
+}
+.apod-source {
+  margin-left: auto; display: flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 9px; color: rgba(255,255,255,0.2);
+  letter-spacing: .1em; text-decoration: none;
+}
+.apod-source:hover { color: #6d9ee8; }
+
+.apod-explanation {
+  font-size: 14px; color: var(--text-dim); line-height: 1.8;
+  max-height: 120px; overflow: hidden; position: relative;
+  transition: max-height 0.4s ease;
+}
+.apod-explanation.expanded { max-height: 2000px; }
+.apod-explanation::after {
+  content: ''; position: absolute; bottom: 0; left: 0; right: 0;
+  height: 48px;
+  background: linear-gradient(transparent, #030612);
+  pointer-events: none; transition: opacity 0.3s;
+}
+.apod-explanation.expanded::after { opacity: 0; }
+
+.apod-footer {
+  display: flex; align-items: center; gap: 12px; margin-top: 16px; flex-wrap: wrap;
+}
+.apod-expand-btn {
+  background: rgba(76,123,201,0.1); border: 1px solid rgba(76,123,201,0.25);
+  color: #6d9ee8; border-radius: 8px; padding: 7px 16px;
+  font-family: var(--mono); font-size: 10px; letter-spacing: .12em;
+  cursor: pointer; transition: all .2s;
+}
+.apod-expand-btn:hover { background: rgba(76,123,201,0.2); }
+.apod-nav-btn {
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+  color: var(--text-dim); border-radius: 8px; padding: 7px 14px;
+  font-family: var(--mono); font-size: 10px; letter-spacing: .1em;
+  cursor: pointer; transition: all .2s;
+}
+.apod-nav-btn:hover { border-color: rgba(255,255,255,0.2); color: var(--text); }
+.apod-key-hint {
+  font-family: var(--mono); font-size: 9px; color: rgba(255,255,255,0.15);
+  margin-left: auto; letter-spacing: .08em;
+}
+.apod-stars-bg {
+  position: absolute; inset: 0; pointer-events: none; overflow: hidden;
+}
+
 </style>
 </head>
 <body>
@@ -1548,6 +1668,44 @@ footer{text-align:center;padding:40px 24px 60px;font-family:var(--mono);font-siz
     </div>
   </section>
 
+
+
+  <!-- ══════════════════════════════════════
+       NASA APOD — ASTRONOMY PICTURE OF THE DAY
+  ══════════════════════════════════════ -->
+  <section class="apod-section">
+    <div class="section-head">
+      <h2 class="section-title">NASA · Zdjęcie Dnia</h2>
+      <p class="section-sub">// Astronomy Picture of the Day — codziennie nowe zdjęcie kosmosu</p>
+    </div>
+    <div class="apod-card" id="apodCard">
+      <!-- Loading state -->
+      <div class="apod-loading" id="apodLoading">
+        <div class="apod-loading-spinner"></div>
+        <div style="font-family:var(--mono);font-size:10px;color:rgba(255,255,255,0.3);letter-spacing:.18em;">ŁĄCZENIE Z NASA API</div>
+      </div>
+      <!-- Image (hidden until loaded) -->
+      <div id="apodMedia" style="display:none"></div>
+      <!-- Body -->
+      <div class="apod-body" id="apodBody" style="display:none">
+        <div class="apod-meta">
+          <span class="apod-copyright" id="apodCopyright"></span>
+          <a class="apod-source" id="apodLink" href="#" target="_blank" rel="noopener">
+            🔗 NASA APOD
+          </a>
+        </div>
+        <div class="apod-explanation" id="apodExpl"></div>
+        <div class="apod-footer">
+          <button class="apod-expand-btn" id="apodExpandBtn" onclick="apodToggleExpand()">
+            ▾ Czytaj więcej
+          </button>
+          <button class="apod-nav-btn" onclick="apodLoadDate(-1)">← Wczoraj</button>
+          <button class="apod-nav-btn" onclick="apodLoadDate(0)">Dziś ↺</button>
+          <span class="apod-key-hint" id="apodDateInfo"></span>
+        </div>
+      </div>
+    </div>
+  </section>
 
   <!-- ══════════════════════════════════════
        FAZA KSIĘŻYCA
@@ -6996,6 +7154,174 @@ function initSolarTab() {
   // Resize
   window.addEventListener('resize', () => { if (ssInited) ssDrawCanvas(ssDate); });
 }
+
+
+// ═══════════════════════════════════════════════════════════
+//  NASA APOD — Astronomy Picture of the Day
+//  Free API key: DEMO_KEY (30 req/h) or get yours at
+//  https://api.nasa.gov/ (unlimited for registered users)
+// ═══════════════════════════════════════════════════════════
+
+const APOD_KEY      = '9L5YbYIdE2evYl64YdcmxeQvXPfxsFU3SJkf6hHa';
+const APOD_CACHE_KEY = 'chronos_apod_v2';
+let   apodOffset     = 0; // 0 = today, -1 = yesterday, etc.
+let   apodExpanded   = false;
+
+function apodDateStr(offset) {
+  const d = new Date();
+  d.setDate(d.getDate() + offset);
+  return d.toISOString().slice(0, 10); // YYYY-MM-DD
+}
+
+async function apodFetch(offset) {
+  const date = apodDateStr(offset);
+
+  // Check cache first (avoids rate limiting)
+  try {
+    const cached = JSON.parse(localStorage.getItem(APOD_CACHE_KEY + date) || 'null');
+    if (cached && cached.date === date) return cached;
+  } catch(e) {}
+
+  // Try multiple strategies in order
+  const urls = [
+    // 1. Direct NASA API (works on HTTPS pages with CORS)
+    `https://api.nasa.gov/planetary/apod?api_key=${APOD_KEY}&date=${date}`,
+    // 2. Without date (gets today — avoids potential date-format issues)
+    ...(offset === 0 ? [`https://api.nasa.gov/planetary/apod?api_key=${APOD_KEY}`] : []),
+    // 3. CORS proxy fallback
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://api.nasa.gov/planetary/apod?api_key=${APOD_KEY}&date=${date}`)}`,
+  ];
+
+  function fetchWithTimeout(url, ms) {
+    return Promise.race([
+      fetch(url),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))
+    ]);
+  }
+
+  let lastErr = null;
+  for (const url of urls) {
+    try {
+      const res  = await fetchWithTimeout(url, 10000);
+      if (!res.ok) { lastErr = new Error('HTTP ' + res.status); continue; }
+      const text = await res.text();
+      const data = JSON.parse(text);
+      if (!data || !data.title) { lastErr = new Error('Empty response'); continue; }
+      try { localStorage.setItem(APOD_CACHE_KEY + date, JSON.stringify(data)); } catch(e) {}
+      return data;
+    } catch(e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr || new Error('All endpoints failed');
+}
+
+async function apodLoad(offset = 0) {
+  apodOffset = offset;
+  apodExpanded = false;
+
+  const loading = document.getElementById('apodLoading');
+  const media   = document.getElementById('apodMedia');
+  const body    = document.getElementById('apodBody');
+  const expl    = document.getElementById('apodExpl');
+  const btn     = document.getElementById('apodExpandBtn');
+
+  if (loading) loading.style.display = 'flex';
+  if (media)   media.style.display   = 'none';
+  if (body)    body.style.display    = 'none';
+  if (expl)    expl.classList.remove('expanded');
+  if (btn)     btn.textContent = '▾ Czytaj więcej';
+
+  try {
+    const d = await apodFetch(offset);
+
+    // Build media element
+    if (media) {
+      if (d.media_type === 'video') {
+        // YouTube or other video
+        const videoId = d.url.match(/embed\/([\w-]+)/)?.[1]
+                     || d.url.match(/v=([\w-]+)/)?.[1]
+                     || '';
+        if (videoId) {
+          media.innerHTML = `
+            <div class="apod-video-wrap">
+              <iframe src="https://www.youtube.com/embed/${videoId}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+            </div>`;
+        } else {
+          media.innerHTML = `<div class="apod-video-wrap"><iframe src="${d.url}" allowfullscreen></iframe></div>`;
+        }
+      } else {
+        // Image
+        const imgSrc = d.hdurl || d.url;
+        media.innerHTML = `
+          <div class="apod-image-wrap">
+            <img src="${imgSrc}" alt="${d.title}"
+              loading="lazy"
+              onclick="window.open('${imgSrc}','_blank')"
+              onerror="this.src='${d.url}'"
+            />
+            <div class="apod-overlay">
+              <div class="apod-date-badge">
+                <span class="live-dot" style="width:5px;height:5px;"></span>
+                ${new Date(d.date + 'T12:00:00').toLocaleDateString('pl-PL',{day:'numeric',month:'long',year:'numeric'})}
+              </div>
+              <div class="apod-title-over">${d.title}</div>
+            </div>
+          </div>`;
+      }
+      media.style.display = '';
+    }
+
+    // Body
+    if (expl) expl.innerHTML = d.explanation || '';
+    const cr = document.getElementById('apodCopyright');
+    if (cr) cr.textContent = d.copyright ? '© ' + d.copyright.trim() : 'Domena publiczna NASA';
+    const lnk = document.getElementById('apodLink');
+    if (lnk) lnk.href = `https://apod.nasa.gov/apod/ap${d.date.replace(/-/g,'').slice(2)}.html`;
+    const inf = document.getElementById('apodDateInfo');
+    if (inf) {
+      const dayDiff = Math.abs(offset);
+      inf.textContent = offset === 0 ? 'Dzisiejsze zdjęcie dnia' :
+        `${dayDiff} ${dayDiff === 1 ? 'dzień' : 'dni'} wstecz`;
+    }
+
+    if (loading) loading.style.display = 'none';
+    if (body)    body.style.display    = '';
+
+  } catch(err) {
+    console.error('APOD error:', err);
+    if (loading) loading.innerHTML = `
+      <div style="text-align:center;padding:40px;display:flex;flex-direction:column;align-items:center;gap:16px;">
+        <span style="font-size:2rem">🔭</span>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--text-dim);letter-spacing:.12em;">
+          ${err.message.includes('429') || err.message.includes('429')
+            ? 'Limit zapytań NASA API — odczekaj chwilę (DEMO_KEY: 30 req/h)'
+            : err.message.includes('abort') || err.message.includes('AbortError')
+            ? 'Timeout — NASA API nie odpowiada'
+            : 'Nie można połączyć z NASA API'}
+          <br><span style="opacity:.5;font-size:9px;">${err.message}</span>
+        </div>
+        <button onclick="apodLoad(${offset})" style="background:rgba(76,123,201,0.15);border:1px solid rgba(76,123,201,0.3);color:#6d9ee8;border-radius:8px;padding:8px 18px;font-family:var(--mono);font-size:10px;letter-spacing:.12em;cursor:pointer;">
+          ↻ Spróbuj ponownie
+        </button>
+      </div>`;
+  }
+}
+
+function apodLoadDate(offset) {
+  apodLoad(offset === 0 ? 0 : apodOffset + offset);
+}
+
+function apodToggleExpand() {
+  apodExpanded = !apodExpanded;
+  const expl = document.getElementById('apodExpl');
+  const btn  = document.getElementById('apodExpandBtn');
+  if (expl) expl.classList.toggle('expanded', apodExpanded);
+  if (btn)  btn.textContent = apodExpanded ? '▴ Zwiń' : '▾ Czytaj więcej';
+}
+
+// Load today's APOD on startup
+apodLoad(0);
 
 // ═══════════════════════════════════════════════════════════
 //  INIT
