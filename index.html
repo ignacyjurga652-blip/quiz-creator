@@ -5682,7 +5682,7 @@ function initEarthTab() {
 const FEATURED_CONFIG = {
 
   // Czy odliczanie ma być widoczne? true = tak, false = ukryj
-  enabled: false,
+  enabled: true,
 
   // Nazwa wyświetlana jako duży tytuł
   title: 'Moje wielkie wydarzenie',
@@ -7252,13 +7252,21 @@ async function apodLoad(offset = 0) {
         }
       } else {
         // Image
+        // Prefer hdurl, fallback to url, then proxy if blocked
         const imgSrc = d.hdurl || d.url;
+        const imgProxy = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(imgSrc);
+
         media.innerHTML = `
           <div class="apod-image-wrap">
-            <img src="${imgSrc}" alt="${d.title}"
-              loading="lazy"
-              onclick="window.open('${imgSrc}','_blank')"
-              onerror="this.src='${d.url}'"
+            <img id="apodImg" src="${imgSrc}" alt="${d.title}" loading="lazy"
+              style="cursor:pointer;"
+              onclick="apodOpenHD()"
+              onerror="
+                if(!this.dataset.proxied){
+                  this.dataset.proxied='1';
+                  this.src='${imgProxy}';
+                }
+              "
             />
             <div class="apod-overlay">
               <div class="apod-date-badge">
@@ -7268,6 +7276,8 @@ async function apodLoad(offset = 0) {
               <div class="apod-title-over">${d.title}</div>
             </div>
           </div>`;
+        // store HD url for click-open
+        window._apodHD = imgSrc;
       }
       media.style.display = '';
     }
@@ -7277,7 +7287,15 @@ async function apodLoad(offset = 0) {
     const cr = document.getElementById('apodCopyright');
     if (cr) cr.textContent = d.copyright ? '© ' + d.copyright.trim() : 'Domena publiczna NASA';
     const lnk = document.getElementById('apodLink');
-    if (lnk) lnk.href = `https://apod.nasa.gov/apod/ap${d.date.replace(/-/g,'').slice(2)}.html`;
+    if (lnk) {
+      // Link to NASA image search — avoids blocked apod.nasa.gov domain
+      lnk.href = d.hdurl || d.url || '#';
+      lnk.textContent = '🔗 Otwórz zdjęcie HD';
+      lnk.onclick = e => {
+        e.preventDefault();
+        apodOpenHD();
+      };
+    }
     const inf = document.getElementById('apodDateInfo');
     if (inf) {
       const dayDiff = Math.abs(offset);
@@ -7305,6 +7323,16 @@ async function apodLoad(offset = 0) {
           ↻ Spróbuj ponownie
         </button>
       </div>`;
+  }
+}
+
+function apodOpenHD() {
+  const url = window._apodHD;
+  if (!url) return;
+  // Try direct first; if blocked (apod.nasa.gov), open via proxy
+  const w = window.open(url, '_blank');
+  if (!w || w.closed) {
+    window.open('https://api.allorigins.win/raw?url=' + encodeURIComponent(url), '_blank');
   }
 }
 
