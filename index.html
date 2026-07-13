@@ -7217,7 +7217,7 @@ async function apodFetch(offset) {
 }
 
 async function apodLoad(offset = 0) {
-  apodOffset = offset;
+  apodOffset   = offset;
   apodExpanded = false;
 
   const loading = document.getElementById('apodLoading');
@@ -7226,105 +7226,115 @@ async function apodLoad(offset = 0) {
   const expl    = document.getElementById('apodExpl');
   const btn     = document.getElementById('apodExpandBtn');
 
-  if (loading) loading.style.display = 'flex';
-  if (media)   media.style.display   = 'none';
-  if (body)    body.style.display    = 'none';
-  if (expl)    expl.classList.remove('expanded');
-  if (btn)     btn.textContent = '▾ Czytaj więcej';
+  if (loading) { loading.style.display = 'flex'; loading.innerHTML = `
+    <div class="apod-loading-spinner"></div>
+    <div style="font-family:var(--mono);font-size:10px;color:rgba(255,255,255,0.3);letter-spacing:.18em;">ŁĄCZENIE Z NASA API</div>`; }
+  if (media) media.style.display = 'none';
+  if (body)  body.style.display  = 'none';
+  if (expl)  expl.classList.remove('expanded');
+  if (btn)   btn.textContent = '▾ Czytaj więcej';
 
+  let d;
   try {
-    const d = await apodFetch(offset);
-
-    // Build media element
-    if (media) {
-      if (d.media_type === 'video') {
-        // YouTube or other video
-        const videoId = d.url.match(/embed\/([\w-]+)/)?.[1]
-                     || d.url.match(/v=([\w-]+)/)?.[1]
-                     || '';
-        if (videoId) {
-          media.innerHTML = `
-            <div class="apod-video-wrap">
-              <iframe src="https://www.youtube.com/embed/${videoId}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-            </div>`;
-        } else {
-          media.innerHTML = `<div class="apod-video-wrap"><iframe src="${d.url}" allowfullscreen></iframe></div>`;
-        }
-      } else {
-        // Image
-        // Prefer hdurl, fallback to url, then proxy if blocked
-        const imgSrc = d.hdurl || d.url;
-        const imgProxy = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(imgSrc);
-
-        media.innerHTML = `
-          <div class="apod-image-wrap">
-            <img id="apodImg" src="${imgSrc}" alt="${d.title}" loading="lazy"
-              style="cursor:pointer;"
-              onclick="apodOpenHD()"
-              onerror="
-                if(!this.dataset.proxied){
-                  this.dataset.proxied='1';
-                  this.src='${imgProxy}';
-                }
-              "
-            />
-            <div class="apod-overlay">
-              <div class="apod-date-badge">
-                <span class="live-dot" style="width:5px;height:5px;"></span>
-                ${new Date(d.date + 'T12:00:00').toLocaleDateString('pl-PL',{day:'numeric',month:'long',year:'numeric'})}
-              </div>
-              <div class="apod-title-over">${d.title}</div>
-            </div>
-          </div>`;
-        // store HD url for click-open
-        window._apodHD = imgSrc;
-      }
-      media.style.display = '';
-    }
-
-    // Body
-    if (expl) expl.innerHTML = d.explanation || '';
-    const cr = document.getElementById('apodCopyright');
-    if (cr) cr.textContent = d.copyright ? '© ' + d.copyright.trim() : 'Domena publiczna NASA';
-    const lnk = document.getElementById('apodLink');
-    if (lnk) {
-      // Link to NASA image search — avoids blocked apod.nasa.gov domain
-      lnk.href = d.hdurl || d.url || '#';
-      lnk.textContent = '🔗 Otwórz zdjęcie HD';
-      lnk.onclick = e => {
-        e.preventDefault();
-        apodOpenHD();
-      };
-    }
-    const inf = document.getElementById('apodDateInfo');
-    if (inf) {
-      const dayDiff = Math.abs(offset);
-      inf.textContent = offset === 0 ? 'Dzisiejsze zdjęcie dnia' :
-        `${dayDiff} ${dayDiff === 1 ? 'dzień' : 'dni'} wstecz`;
-    }
-
-    if (loading) loading.style.display = 'none';
-    if (body)    body.style.display    = '';
-
+    d = await apodFetch(offset);
   } catch(err) {
-    console.error('APOD error:', err);
     if (loading) loading.innerHTML = `
       <div style="text-align:center;padding:40px;display:flex;flex-direction:column;align-items:center;gap:16px;">
         <span style="font-size:2rem">🔭</span>
-        <div style="font-family:var(--mono);font-size:11px;color:var(--text-dim);letter-spacing:.12em;">
-          ${err.message.includes('429') || err.message.includes('429')
-            ? 'Limit zapytań NASA API — odczekaj chwilę (DEMO_KEY: 30 req/h)'
-            : err.message.includes('abort') || err.message.includes('AbortError')
-            ? 'Timeout — NASA API nie odpowiada'
-            : 'Nie można połączyć z NASA API'}
-          <br><span style="opacity:.5;font-size:9px;">${err.message}</span>
+        <div style="font-family:var(--mono);font-size:11px;color:rgba(255,255,255,0.4);letter-spacing:.1em;line-height:1.8;">
+          Błąd pobierania z NASA API<br>
+          <span style="opacity:.5;font-size:9px;">${err.message}</span>
         </div>
-        <button onclick="apodLoad(${offset})" style="background:rgba(76,123,201,0.15);border:1px solid rgba(76,123,201,0.3);color:#6d9ee8;border-radius:8px;padding:8px 18px;font-family:var(--mono);font-size:10px;letter-spacing:.12em;cursor:pointer;">
-          ↻ Spróbuj ponownie
-        </button>
+        <button onclick="apodLoad(${offset})" class="apod-expand-btn">↻ Spróbuj ponownie</button>
       </div>`;
+    return;
   }
+
+  // ── Build image URL ─────────────────────────────────────
+  // Always proxy through wsrv.nl — handles blocked domains, resizes, caches
+  function proxyImg(url) {
+    return 'https://wsrv.nl/?url=' + encodeURIComponent(url) + '&w=1200&output=webp&q=90';
+  }
+
+  window._apodRawUrl = d.hdurl || d.url || '';
+  window._apodHD     = window._apodRawUrl;
+
+  if (media) {
+    if (d.media_type === 'video') {
+      // YouTube or vimeo embed
+      const ytMatch = (d.url || '').match(/(?:embed\/|v=|youtu\.be\/)([\w-]{11})/);
+      const iframeSrc = ytMatch
+        ? `https://www.youtube-nocookie.com/embed/${ytMatch[1]}`
+        : d.url;
+      media.innerHTML = `
+        <div class="apod-video-wrap">
+          <iframe src="${iframeSrc}" allowfullscreen loading="lazy"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture">
+          </iframe>
+        </div>`;
+    } else {
+      // Image — proxy through wsrv.nl so apod.nasa.gov blocking doesn't matter
+      const proxied = proxyImg(window._apodRawUrl);
+      media.innerHTML = `
+        <div class="apod-image-wrap" id="apodImgWrap">
+          <img id="apodImg" src="${proxied}" alt="${(d.title||'').replace(/"/g,'&quot;')}"
+            loading="eager"
+            style="opacity:0;transition:opacity .5s;"
+            onload="this.style.opacity=1"
+            onerror="apodImgError(this,'${window._apodRawUrl.replace(/'/g,"\\'")}')"
+          />
+          <div class="apod-overlay">
+            <div class="apod-date-badge">
+              <span class="live-dot" style="width:5px;height:5px;"></span>
+              ${new Date((d.date||'') + 'T12:00:00').toLocaleDateString('pl-PL',{day:'numeric',month:'long',year:'numeric'})}
+            </div>
+            <div class="apod-title-over">${d.title || ''}</div>
+          </div>
+        </div>`;
+    }
+    media.style.display = '';
+  }
+
+  if (loading) loading.style.display = 'none';
+
+  // Body
+  if (expl) expl.innerHTML = d.explanation || '';
+  const cr = document.getElementById('apodCopyright');
+  if (cr) cr.textContent = d.copyright ? '© ' + d.copyright.trim().replace(/\n/g,' ') : 'NASA / Domena publiczna';
+  const lnk = document.getElementById('apodLink');
+  if (lnk) {
+    lnk.textContent = '🔗 Zdjęcie HD';
+    lnk.href = '#';
+    lnk.onclick = e => { e.preventDefault(); apodOpenHD(); };
+  }
+  const inf = document.getElementById('apodDateInfo');
+  if (inf) inf.textContent = offset === 0 ? 'Dzisiejsze zdjęcie dnia'
+    : Math.abs(offset) + (Math.abs(offset)===1?' dzień':' dni') + ' wstecz';
+
+  if (body) body.style.display = '';
 }
+
+function apodImgError(img, rawUrl) {
+  // wsrv.nl failed — try allorigins proxy
+  if (!img.dataset.try2) {
+    img.dataset.try2 = '1';
+    img.src = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(rawUrl);
+    return;
+  }
+  // Both proxies failed — show placeholder
+  const wrap = document.getElementById('apodImgWrap');
+  if (wrap) wrap.innerHTML = `
+    <div style="aspect-ratio:16/9;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:radial-gradient(ellipse,#06081a,#030612);">
+      <span style="font-size:3rem">🔭</span>
+      <div style="font-family:var(--mono);font-size:10px;color:rgba(255,255,255,0.3);letter-spacing:.12em;text-align:center;">
+        Obraz niedostępny w tej sieci<br>
+        <a href="${rawUrl}" target="_blank" style="color:#6d9ee8;text-decoration:none;margin-top:8px;display:inline-block;">
+          ↗ Otwórz bezpośredni link
+        </a>
+      </div>
+    </div>`;
+}
+
 
 function apodOpenHD() {
   const url = window._apodHD;
