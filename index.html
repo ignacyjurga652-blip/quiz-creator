@@ -1323,6 +1323,79 @@ footer{text-align:center;padding:40px 24px 60px;font-family:var(--mono);font-siz
   position: absolute; inset: 0; pointer-events: none; overflow: hidden;
 }
 
+
+/* ═══════════════════════════════════════════════════
+   ISS TRACKER TAB
+═══════════════════════════════════════════════════ */
+.iss-hero {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(160px,1fr));
+  gap: 12px; margin-bottom: 32px;
+}
+.iss-hero-card {
+  background: var(--card); border: 1px solid var(--card-border);
+  border-radius: 14px; padding: 18px 20px; position: relative; overflow: hidden;
+}
+.iss-hero-card::before { content:''; position:absolute; top:0;left:0;right:0;height:2px; background:var(--ic,#4cc97a); opacity:.7; }
+.iss-hero-val { font-family:var(--mono); font-size:1.1rem; font-weight:700; color:var(--text); font-variant-numeric:tabular-nums; margin-bottom:3px; }
+.iss-hero-lbl { font-family:var(--mono); font-size:9px; color:var(--text-dim); letter-spacing:.12em; text-transform:uppercase; line-height:1.5; }
+
+/* Map */
+.iss-map-box {
+  background: #020812;
+  border: 1px solid rgba(76,201,122,0.2); border-radius: 20px;
+  overflow: hidden; position: relative; margin-bottom: 32px;
+}
+.iss-map-box::before { content:''; position:absolute;top:0;left:0;right:0;height:2px; background:linear-gradient(90deg,#4cc97a,#4c7bc9); }
+.iss-map-top { padding:16px 24px 0; display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+.iss-map-title { font-family:var(--serif); font-size:1.2rem; font-weight:300; }
+.iss-map-live { display:flex; align-items:center; gap:7px; font-family:var(--mono); font-size:9px; color:#4cc97a; letter-spacing:.15em; text-transform:uppercase; }
+#issCanvas { display:block; width:100%; cursor:crosshair; }
+.iss-tip { position:absolute; background:rgba(3,9,20,.95); border:1px solid rgba(76,201,122,.3); border-radius:8px; padding:8px 14px; font-family:var(--mono); font-size:11px; color:var(--text); pointer-events:none; display:none; z-index:10; white-space:nowrap; }
+.iss-map-legend { display:flex; gap:20px; padding:10px 24px 16px; flex-wrap:wrap; }
+.iss-leg { display:flex; align-items:center; gap:7px; font-family:var(--mono); font-size:9px; color:var(--text-dim); }
+.iss-leg-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+
+/* Pass predictor */
+.iss-pass-box {
+  background: var(--card); border: 1px solid var(--card-border);
+  border-radius: 18px; padding: 24px 28px; margin-bottom: 32px; position: relative; overflow:hidden;
+}
+.iss-pass-box::before { content:''; position:absolute;top:0;left:0;right:0;height:2px; background:linear-gradient(90deg,#4cc97a,#4c7bc9); }
+.iss-pass-title { font-family:var(--serif); font-size:1.3rem; font-weight:300; margin-bottom:16px; }
+.iss-pass-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:12px; }
+.iss-pass-stat { background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.07); border-radius:10px; padding:12px 14px; }
+.iss-pass-val { font-family:var(--mono); font-size:1rem; font-weight:700; color:#4cc97a; font-variant-numeric:tabular-nums; margin-bottom:3px; }
+.iss-pass-lbl { font-family:var(--mono); font-size:9px; color:var(--text-dim); letter-spacing:.1em; text-transform:uppercase; line-height:1.4; }
+.iss-countdown-bar { height:3px; background:rgba(255,255,255,.06); border-radius:99px; overflow:hidden; margin-top:8px; }
+.iss-countdown-fill { height:100%; border-radius:99px; background:linear-gradient(90deg,#4cc97a,#4c7bc9); transition:width .5s ease; }
+.iss-visibility-note { font-family:var(--mono); font-size:10px; color:var(--text-dim); margin-top:14px; line-height:1.8; border-top:1px solid rgba(255,255,255,.05); padding-top:12px; }
+
+/* Crew */
+.iss-crew-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:14px; margin-bottom:32px; }
+.iss-crew-card {
+  background: var(--card); border: 1px solid var(--card-border);
+  border-radius: 14px; padding: 20px; position:relative; overflow:hidden;
+  transition: border-color .3s, transform .2s;
+}
+.iss-crew-card:hover { border-color:rgba(76,201,122,.3); transform:translateY(-2px); }
+.iss-crew-card::before { content:''; position:absolute;top:0;left:0;right:0;height:2px; background:var(--cc,#4cc97a); opacity:.6; }
+.iss-crew-avatar { font-size:28px; margin-bottom:10px; }
+.iss-crew-name { font-family:var(--serif); font-size:1.1rem; font-weight:400; margin-bottom:4px; }
+.iss-crew-agency { font-family:var(--mono); font-size:9px; color:var(--text-dim); letter-spacing:.12em; text-transform:uppercase; }
+.iss-crew-craft { display:inline-flex; align-items:center; gap:5px; background:rgba(76,201,122,.1); border:1px solid rgba(76,201,122,.25); border-radius:99px; padding:2px 8px; font-family:var(--mono); font-size:8px; color:#4cc97a; letter-spacing:.1em; margin-top:8px; }
+
+/* Facts */
+.iss-facts-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:14px; margin-bottom:16px; }
+.iss-fact { background:var(--card); border:1px solid var(--card-border); border-radius:14px; padding:20px; border-left:3px solid var(--fc,#4cc97a); }
+.iss-fact-icon { font-size:22px; margin-bottom:8px; }
+.iss-fact-title { font-size:13px; font-weight:500; color:var(--text); margin-bottom:6px; }
+.iss-fact-body { font-size:12px; color:var(--text-dim); line-height:1.7; }
+.iss-fact-body strong { color:var(--text); }
+
+.iss-orbit-counter { font-family:var(--mono); font-size:1.5rem; font-weight:700; color:#4cc97a; font-variant-numeric:tabular-nums; }
+
+@media(max-width:680px){ .iss-hero{grid-template-columns:repeat(2,1fr);} }
+
 </style>
 </head>
 <body>
@@ -1353,6 +1426,9 @@ footer{text-align:center;padding:40px 24px 60px;font-family:var(--mono);font-siz
     </button>
     <button class="tab-btn" id="tab_solar" onclick="switchTab('solar')">
       <span class="tab-icon">🪐</span> Układ Słoneczny
+    </button>
+    <button class="tab-btn" id="tab_iss" onclick="switchTab('iss')">
+      <span class="tab-icon">🛸</span> ISS Tracker
     </button>
   </div>
 </nav>
@@ -2842,6 +2918,147 @@ footer{text-align:center;padding:40px 24px 60px;font-family:var(--mono);font-siz
     </div>
 
   </div><!-- /pane_solar -->
+
+  <!-- ══════════════════════════════════════
+       ISS TRACKER TAB
+  ══════════════════════════════════════ -->
+  <div class="tab-pane" id="pane_iss">
+
+    <!-- HERO LIVE STATS -->
+    <div class="iss-hero">
+      <div class="iss-hero-card" style="--ic:#4cc97a">
+        <div class="iss-hero-val" id="iss_alt">408 km</div>
+        <div class="iss-hero-lbl">Wysokość orbity</div>
+      </div>
+      <div class="iss-hero-card" style="--ic:#c9a84c">
+        <div class="iss-hero-val" id="iss_spd">27 600 km/h</div>
+        <div class="iss-hero-lbl">Prędkość orbitalna</div>
+      </div>
+      <div class="iss-hero-card" style="--ic:#8a6cc9">
+        <div class="iss-hero-val" id="iss_orb">—</div>
+        <div class="iss-hero-lbl">Okrążeń od startu</div>
+      </div>
+      <div class="iss-hero-card" style="--ic:#4c7bc9">
+        <div class="iss-hero-val" id="iss_crew_n">—</div>
+        <div class="iss-hero-lbl">Astronautów na pokładzie</div>
+      </div>
+      <div class="iss-hero-card" style="--ic:#c94c4c">
+        <div class="iss-hero-val" id="iss_lat">—</div>
+        <div class="iss-hero-lbl">Aktualna szerokość</div>
+      </div>
+      <div class="iss-hero-card" style="--ic:#c9774c">
+        <div class="iss-hero-val" id="iss_lon">—</div>
+        <div class="iss-hero-lbl">Aktualna długość</div>
+      </div>
+    </div>
+
+    <!-- LIVE MAP -->
+    <div class="section-head">
+      <h2 class="section-title">Pozycja ISS na żywo</h2>
+      <p class="section-sub">// Aktualizacja co 5 sekund · Tor lotu — następne 90 minut</p>
+    </div>
+    <div class="iss-map-box">
+      <div class="iss-map-top">
+        <div>
+          <div class="iss-map-title">🛸 International Space Station</div>
+        </div>
+        <div class="iss-map-live">
+          <span class="live-dot"></span> Na żywo
+        </div>
+      </div>
+      <div style="padding:12px 16px 0;position:relative;">
+        <canvas id="issCanvas" height="380"></canvas>
+        <div class="iss-tip" id="issTip"></div>
+      </div>
+      <div class="iss-map-legend">
+        <div class="iss-leg"><div class="iss-leg-dot" style="background:#4cc97a;box-shadow:0 0 6px #4cc97a"></div>ISS (aktualna pozycja)</div>
+        <div class="iss-leg"><div class="iss-leg-dot" style="background:rgba(76,201,122,.3);"></div>Tor lotu (90 min)</div>
+        <div class="iss-leg"><div class="iss-leg-dot" style="background:#c9a84c"></div>Twoja lokalizacja</div>
+        <div class="iss-leg"><div class="iss-leg-dot" style="background:rgba(255,255,255,.08)"></div>Strefa nocna</div>
+      </div>
+    </div>
+
+    <!-- NEXT PASS -->
+    <div class="section-head">
+      <h2 class="section-title">Następny przelot nad Tobą</h2>
+      <p class="section-sub">// Kiedy ISS pojawi się na niebie Twojej lokalizacji</p>
+    </div>
+    <div class="iss-pass-box">
+      <div class="iss-pass-title">🌐 Przelot nad Twoją lokalizacją</div>
+      <div class="iss-pass-grid" id="issPassGrid">
+        <div class="iss-pass-stat">
+          <div class="iss-pass-val" id="iss_pass_time">—</div>
+          <div class="iss-pass-lbl">Czas przelotu</div>
+        </div>
+        <div class="iss-pass-stat">
+          <div class="iss-pass-val" id="iss_pass_in">—</div>
+          <div class="iss-pass-lbl">Za ile czasu</div>
+        </div>
+        <div class="iss-pass-stat">
+          <div class="iss-pass-val" id="iss_pass_dist">—</div>
+          <div class="iss-pass-lbl">Min. odległość</div>
+        </div>
+        <div class="iss-pass-stat">
+          <div class="iss-pass-val" id="iss_pass_dur">~6 min</div>
+          <div class="iss-pass-lbl">Czas widoczności</div>
+        </div>
+      </div>
+      <div class="iss-countdown-bar">
+        <div class="iss-countdown-fill" id="iss_pass_bar" style="width:0%"></div>
+      </div>
+      <div class="iss-visibility-note" id="issPassNote">
+        📡 Ładowanie predykcji przelotu...
+      </div>
+    </div>
+
+    <!-- CREW -->
+    <div class="section-head">
+      <h2 class="section-title">Załoga ISS</h2>
+      <p class="section-sub">// Osoby aktualnie przebywające w kosmosie</p>
+    </div>
+    <div class="iss-crew-grid" id="issCrewGrid">
+      <div style="padding:20px;font-family:var(--mono);font-size:11px;color:var(--text-dim);">Ładowanie danych...</div>
+    </div>
+
+    <!-- FACTS -->
+    <div class="section-head">
+      <h2 class="section-title">ISS w liczbach</h2>
+      <p class="section-sub">// Fakty o Międzynarodowej Stacji Kosmicznej</p>
+    </div>
+    <div class="iss-facts-grid">
+      <div class="iss-fact" style="--fc:#4cc97a">
+        <div class="iss-fact-icon">🏗️</div>
+        <div class="iss-fact-title">Największa struktura w kosmosie</div>
+        <div class="iss-fact-body">ISS ma <strong>109 metrów szerokości</strong> (większa niż boisko futbolowe) i <strong>73 metry długości</strong>. Masa to ponad <strong>420 ton</strong>. Budowana przez 13 lat — od 1998 do 2011 roku.</div>
+      </div>
+      <div class="iss-fact" style="--fc:#c9a84c">
+        <div class="iss-fact-icon">⚡</div>
+        <div class="iss-fact-title">90 minut = 1 doba na ISS</div>
+        <div class="iss-fact-body">ISS okrąża Ziemię co <strong>92 minuty</strong>, więc astronauci widzą wschód słońca <strong>16 razy dziennie</strong>. W ciągu roku spędzony na ISS to ~5840 wschodów słońca.</div>
+      </div>
+      <div class="iss-fact" style="--fc:#8a6cc9">
+        <div class="iss-fact-icon">🌡️</div>
+        <div class="iss-fact-title">Ekstremalne temperatury</div>
+        <div class="iss-fact-body">Zewnętrzna powierzchnia ISS nagrzewa się do <strong>+121°C</strong> w słońcu i spada do <strong>-157°C</strong> w cieniu. Wewnątrz utrzymywana jest temperatura <strong>+22°C</strong>.</div>
+      </div>
+      <div class="iss-fact" style="--fc:#4c7bc9">
+        <div class="iss-fact-icon">💧</div>
+        <div class="iss-fact-title">Woda z odzysku</div>
+        <div class="iss-fact-body">ISS recyklinguje <strong>98% wody</strong> — łącznie z moczem i potem. System ECLSS odzyskuje wodę pitną z powietrza. Każdy litr wody jest na wagę złota — koszt dostarczenia to ok. <strong>9 000 USD/litr</strong>.</div>
+      </div>
+      <div class="iss-fact" style="--fc:#c9774c">
+        <div class="iss-fact-icon">🔬</div>
+        <div class="iss-fact-title">Latające laboratorium</div>
+        <div class="iss-fact-body">Na ISS przeprowadzono ponad <strong>3 000 eksperymentów naukowych</strong> z 108 krajów. Badania obejmują m.in. wzrost kryształów białek, zachowanie ognia w mikrograwitacji i efekty długiego lotu na ludzki organizm.</div>
+      </div>
+      <div class="iss-fact" style="--fc:#c94c4c">
+        <div class="iss-fact-icon">🚀</div>
+        <div class="iss-fact-title">Ciągła obecność człowieka od 2000 roku</div>
+        <div class="iss-fact-body">Od <strong>2 listopada 2000 roku</strong> na ISS nieprzerwanie przebywa co najmniej jedna osoba. To ponad <strong>24 lata</strong> ciągłej obecności człowieka w kosmosie. Pierwszą załogą była Ekspedycja 1.</div>
+      </div>
+    </div>
+
+  </div><!-- /pane_iss -->
 
 </main>
 <footer><div class="container">CHRONOS — KAŻDA SEKUNDA SIĘ LICZY &nbsp;|&nbsp; <span id="footerSecs">—</span> SEKUND OD EPOKI UNIX</div></footer>
@@ -5096,6 +5313,7 @@ function switchTab(tab) {
   if (tab === 'earth') initEarthTab();
   if (tab === 'science') initScienceTab();
   if (tab === 'solar')   initSolarTab();
+  if (tab === 'iss')     initISSTab();
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -5691,14 +5909,14 @@ const FEATURED_CONFIG = {
   targetDate: '2026-10-04T00:00:00',
 
   // Data startowa (opcjonalnie) — pasek progresu. null = wyłącz
-  startDate: '2025-09-21T00:00:00',
+  startDate: '2026-09-21T00:00:00',
 
   // Kolor akcentu: '#c9a84c' złoty | '#4c7bc9' niebieski | '#c94c7a' różowy
   //               '#4cc97a' zielony | '#8a6cc9' fioletowy | '#c94c4c' czerwony
   color: '#c9a84c',
 
   // Podtytuł ('' żeby ukryć)
-  subtitle: 'Wyróżnione Odliczanie',
+  subtitle: '⭐Wyróżnione odliczanie⭐',
 
   // Wiadomość po upłynięciu czasu
   pastMessage: '✓ Cel osiągnięty!',
@@ -7360,6 +7578,356 @@ function apodToggleExpand() {
 
 // Load today's APOD on startup
 apodLoad(0);
+
+
+// ═══════════════════════════════════════════════════════════
+//  ISS TRACKER
+// ═══════════════════════════════════════════════════════════
+let issInited  = false;
+let issPos     = null;   // { lat, lon, alt, vel }
+let issHistory = [];     // last N positions for trail
+let issTrack   = [];     // predicted ground track
+let issPassInfo = null;
+let issCrew    = [];
+let issInterval = null;
+
+// ISS launch date for orbit counter
+const ISS_LAUNCH = new Date('1998-11-20T06:40:00Z').getTime();
+const ISS_PERIOD = 92.68; // minutes per orbit
+
+// Agency colors
+const AGENCY_COLOR = {
+  NASA: '#4c7bc9', Roscosmos: '#c94c4c', ESA: '#4cc97a',
+  JAXA: '#c9a84c', CSA: '#8a6cc9',
+};
+const AGENCY_FLAG = {
+  NASA: '🇺🇸', Roscosmos: '🇷🇺', ESA: '🇪🇺',
+  JAXA: '🇯🇵', CSA: '🇨🇦',
+};
+
+// ── Haversine distance (km) ────────────────────────────────
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2-lat1) * Math.PI/180;
+  const dLon = (lon2-lon1) * Math.PI/180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  return R * 2 * Math.asin(Math.sqrt(a));
+}
+
+// ── Predict ground track ────────────────────────────────────
+// Approximate: ISS moves ~7.66 km/s eastward, inclination 51.6°
+// Each step: advance by orbital mechanics approximation
+function predictTrack(lat, lon, steps = 54, stepMin = 2) {
+  const track = [];
+  let curLat = lat, curLon = lon;
+  const INCL  = 51.6;  // degrees
+  const PERIOD_MIN = ISS_PERIOD;
+  // Angular velocity degrees/min of ISS longitude (orbital)
+  const dLon_orbit = 360 / PERIOD_MIN; // ~3.88 deg/min eastward
+  const dLon_earth = 360 / 1440;       // ~0.25 deg/min westward (Earth rotation)
+  const netLon = dLon_orbit - dLon_earth; // net longitude change per minute
+
+  // Phase angle from current lat (approximate)
+  let phase = Math.asin(Math.max(-1, Math.min(1, curLat / INCL)));
+  // Determine if ascending or descending (rough heuristic)
+  // We can't know exactly, so use alternating based on longitude
+
+  for (let i = 0; i < steps; i++) {
+    phase += (2 * Math.PI / PERIOD_MIN) * stepMin;
+    curLat  = INCL * Math.sin(phase);
+    curLon  = curLon + netLon * stepMin;
+    if (curLon > 180)  curLon -= 360;
+    if (curLon < -180) curLon += 360;
+    track.push({ lat: curLat, lon: curLon });
+  }
+  return track;
+}
+
+// ── Find next pass over user's location ────────────────────
+function computeNextPass(track, userLat, userLon) {
+  if (!track.length || userLat == null) return null;
+
+  const FOOTPRINT = 1800; // km radius where ISS is visible (low angle)
+  const VISIBLE_KM = 2200; // more generous for naked eye at clear sky
+
+  let minDist = Infinity, minIdx = -1;
+  for (let i = 0; i < track.length; i++) {
+    const d = haversine(track[i].lat, track[i].lon, userLat, userLon);
+    if (d < minDist) { minDist = d; minIdx = i; }
+  }
+
+  if (minIdx < 0) return null;
+
+  const minsAway  = minIdx * 2; // each step = 2 min
+  const passTime  = new Date(Date.now() + minsAway * 60000);
+  const visible   = minDist < VISIBLE_KM;
+
+  return { minsAway, passTime, minDist: Math.round(minDist), visible, idx: minIdx };
+}
+
+// ── Draw ISS map ─────────────────────────────────────────
+function drawISSMap() {
+  const canvas = document.getElementById('issCanvas');
+  if (!canvas) return;
+  const W = canvas.parentElement.clientWidth || 800;
+  canvas.width = W;
+  canvas.height = 380;
+  const ctx = canvas.getContext('2d');
+  const H = 380;
+
+  // BG
+  ctx.fillStyle = '#020812'; ctx.fillRect(0,0,W,H);
+
+  // Grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.04)'; ctx.lineWidth = 1;
+  for (let lon=-180;lon<=180;lon+=30) {
+    const x=(lon+180)/360*W;
+    ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();
+  }
+  for (let lat=-90;lat<=90;lat+=30) {
+    const y=(90-lat)/180*H;
+    ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();
+  }
+  // Equator
+  ctx.strokeStyle='rgba(255,255,255,0.08)';
+  const eqY=(90)/180*H;
+  ctx.beginPath();ctx.moveTo(0,eqY);ctx.lineTo(W,eqY);ctx.stroke();
+
+  // Coastlines (reuse WORLD_LINES)
+  ctx.strokeStyle='rgba(76,123,201,0.4)';ctx.lineWidth=1;
+  WORLD_LINES.forEach(line=>{
+    ctx.beginPath();
+    line.forEach(([lat,lon],i)=>{
+      const x=(lon+180)/360*W, y=(90-lat)/180*H;
+      i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+  });
+
+  // Night terminator (approximate solar declination)
+  const now   = new Date();
+  const dayOfYear = Math.floor((now-new Date(now.getFullYear(),0,0))/86400000);
+  const solarDecl = -23.45 * Math.cos(2*Math.PI*(dayOfYear+10)/365) * Math.PI/180;
+  const solarLon  = -((now.getUTCHours()*60+now.getUTCMinutes())/1440*360-180);
+
+  ctx.fillStyle='rgba(0,0,0,0.35)';
+  ctx.beginPath();
+  for (let lon=-180;lon<=180;lon+=2) {
+    const termLat = Math.atan(-Math.cos((lon-solarLon)*Math.PI/180)/Math.tan(solarDecl))*180/Math.PI;
+    const x=(lon+180)/360*W, y=(90-termLat)/180*H;
+    lon===-180?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  }
+  ctx.lineTo(W,H); ctx.lineTo(0,H); ctx.closePath(); ctx.fill();
+
+  // Ground track
+  if (issTrack.length > 1) {
+    ctx.strokeStyle='rgba(76,201,122,0.25)';ctx.lineWidth=1.5;ctx.setLineDash([4,6]);
+    ctx.beginPath();
+    issTrack.forEach((p,i)=>{
+      const x=(p.lon+180)/360*W, y=(90-p.lat)/180*H;
+      if(i===0||Math.abs(issTrack[i].lon-issTrack[i-1].lon)>180)ctx.moveTo(x,y);
+      else ctx.lineTo(x,y);
+    });
+    ctx.stroke();ctx.setLineDash([]);
+  }
+
+  // History trail
+  if (issHistory.length>1) {
+    for (let i=1;i<issHistory.length;i++) {
+      const a=issHistory[i-1],b=issHistory[i];
+      if(Math.abs(a.lon-b.lon)>90)continue;
+      const ax=(a.lon+180)/360*W,ay=(90-a.lat)/180*H;
+      const bx=(b.lon+180)/360*W,by=(90-b.lat)/180*H;
+      ctx.strokeStyle=`rgba(76,201,122,${0.15+(i/issHistory.length)*0.35})`;
+      ctx.lineWidth=2;
+      ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(bx,by);ctx.stroke();
+    }
+  }
+
+  // User location
+  if (sunLat!=null) {
+    const ux=(sunLon+180)/360*W, uy=(90-sunLat)/180*H;
+    ctx.fillStyle='#c9a84c';
+    ctx.beginPath();ctx.arc(ux,uy,5,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='rgba(201,168,76,0.4)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.arc(ux,uy,14,0,Math.PI*2);ctx.stroke();
+    ctx.font='9px Space Mono';ctx.fillStyle='rgba(201,168,76,0.7)';
+    ctx.textAlign='center';ctx.fillText('📍',ux,uy-18);
+  }
+
+  // ISS position
+  if (issPos) {
+    const ix=(issPos.lon+180)/360*W, iy=(90-issPos.lat)/180*H;
+
+    // Footprint circle
+    const footprintDeg = 2200/111;
+    const fR = footprintDeg/180*H*0.8;
+    ctx.strokeStyle='rgba(76,201,122,0.12)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.arc(ix,iy,fR,0,Math.PI*2);ctx.stroke();
+
+    // Glow
+    const gl=ctx.createRadialGradient(ix,iy,0,ix,iy,22);
+    gl.addColorStop(0,'rgba(76,201,122,0.6)');
+    gl.addColorStop(1,'rgba(76,201,122,0)');
+    ctx.fillStyle=gl;ctx.beginPath();ctx.arc(ix,iy,22,0,Math.PI*2);ctx.fill();
+
+    // ISS dot
+    ctx.fillStyle='#4cc97a';
+    ctx.beginPath();ctx.arc(ix,iy,6,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='#fff';ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.arc(ix,iy,6,0,Math.PI*2);ctx.stroke();
+
+    // Label
+    ctx.font='bold 10px Space Mono';ctx.fillStyle='#4cc97a';
+    ctx.textAlign='center';ctx.fillText('ISS',ix,iy-12);
+  }
+
+  // Lat/lon labels
+  ctx.font='7px Space Mono';ctx.fillStyle='rgba(255,255,255,0.15)';ctx.textAlign='center';
+  for(let lon=-120;lon<=120;lon+=60){
+    ctx.fillText(lon+'°',(lon+180)/360*W,H-4);
+  }
+}
+
+// ── Fetch ISS position ──────────────────────────────────────
+async function fetchISSPos() {
+  try {
+    // wheretheissatcom has CORS support
+    const res  = await fetch('https://api.wheretheissatcom/iss-now.json');
+    const data = await res.json();
+    if (!data.latitude) throw new Error('no data');
+    return {
+      lat: parseFloat(data.latitude),
+      lon: parseFloat(data.longitude),
+      alt: parseFloat(data.altitude  || 408),
+      vel: parseFloat(data.velocity  || 27600),
+    };
+  } catch(e) {
+    // Fallback: open-notify
+    try {
+      const res  = await fetch('https://api.open-notify.org/iss-now.json');
+      const data = await res.json();
+      return {
+        lat: parseFloat(data.iss_position.latitude),
+        lon: parseFloat(data.iss_position.longitude),
+        alt: 408, vel: 27600,
+      };
+    } catch(e2) { return null; }
+  }
+}
+
+// ── Fetch crew ──────────────────────────────────────────────
+async function fetchISSCrew() {
+  try {
+    const res  = await fetch('https://api.open-notify.org/astros.json');
+    const data = await res.json();
+    return (data.people || []).filter(p => p.craft === 'ISS');
+  } catch(e) { return []; }
+}
+
+// ── Update hero stats ───────────────────────────────────────
+function issUpdateHero() {
+  if (!issPos) return;
+  const totalMins = (Date.now() - ISS_LAUNCH) / 60000;
+  const orbits    = Math.floor(totalMins / ISS_PERIOD);
+  function sv(id,v){const e=document.getElementById(id);if(e)e.textContent=v;}
+  sv('iss_alt',  issPos.alt.toFixed(1) + ' km');
+  sv('iss_spd',  Math.round(issPos.vel).toLocaleString('pl-PL') + ' km/h');
+  sv('iss_orb',  orbits.toLocaleString('pl-PL'));
+  sv('iss_lat',  (issPos.lat>=0?issPos.lat.toFixed(3)+'°N':Math.abs(issPos.lat).toFixed(3)+'°S'));
+  sv('iss_lon',  (issPos.lon>=0?issPos.lon.toFixed(3)+'°E':Math.abs(issPos.lon).toFixed(3)+'°W'));
+}
+
+// ── Update pass predictor ───────────────────────────────────
+function issUpdatePass() {
+  if (!issPos || sunLat==null) {
+    document.getElementById('issPassNote').textContent = '📡 Udostępnij lokalizację aby zobaczyć prognozę przelotu.';
+    return;
+  }
+  const pass = computeNextPass(issTrack, sunLat, sunLon);
+  if (!pass) return;
+
+  function sv(id,v){const e=document.getElementById(id);if(e)e.textContent=v;}
+
+  const hh = String(Math.floor(pass.minsAway/60)).padStart(2,'0');
+  const mm = String(pass.minsAway%60).padStart(2,'0');
+  sv('iss_pass_in',   pass.minsAway < 60 ? pass.minsAway + ' min' : hh + 'h ' + mm + 'min');
+  sv('iss_pass_dist', pass.minDist.toLocaleString('pl-PL') + ' km');
+  sv('iss_pass_time',
+    pass.passTime.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'}));
+
+  // Progress bar — 0% now, 100% at pass time
+  const totalWait = pass.minsAway * 60000;
+  const pct = Math.max(0, Math.min(99, (1 - totalWait / (issTrack.length*2*60000)) * 100));
+  const bar = document.getElementById('iss_pass_bar');
+  if (bar) bar.style.width = pct.toFixed(1) + '%';
+
+  const note = document.getElementById('issPassNote');
+  if (note) note.innerHTML = pass.visible
+    ? `👁️ <strong>Przelot widoczny gołym okiem</strong> — ISS będzie jasna jak gwiazda pierwszej wielkości.<br>Szukaj szybko poruszającego się jasnego punktu na niebie. Przelot trwa ok. 6 minut.`
+    : `🔭 Przelot <strong>${pass.minDist.toLocaleString('pl-PL')} km</strong> od Twojej lokalizacji — może nie być widoczny gołym okiem.<br>Następny bliższy przelot za ok. ${Math.round(ISS_PERIOD)} minut.`;
+}
+
+// ── Render crew cards ───────────────────────────────────────
+function issRenderCrew(crew) {
+  const grid = document.getElementById('issCrewGrid');
+  if (!grid) return;
+  if (!crew.length) {
+    grid.innerHTML = '<div style="padding:20px;font-family:var(--mono);font-size:11px;color:var(--text-dim);">Nie udało się pobrać danych załogi.</div>';
+    return;
+  }
+  grid.innerHTML = crew.map(p => {
+    const agency = Object.keys(AGENCY_FLAG).find(k => p.name.includes(k.slice(0,4))) || 'NASA';
+    const col    = AGENCY_COLOR[p.craft==='ISS'?'NASA':agency] || '#4cc97a';
+    const flag   = AGENCY_FLAG[agency] || '🧑‍🚀';
+    return `<div class="iss-crew-card" style="--cc:${col}">
+      <div class="iss-crew-avatar">${flag} 🧑‍🚀</div>
+      <div class="iss-crew-name">${p.name}</div>
+      <div class="iss-crew-agency">${p.craft}</div>
+      <div class="iss-crew-craft"><span class="live-dot" style="width:5px;height:5px;"></span> Na pokładzie ISS</div>
+    </div>`;
+  }).join('');
+
+  // Update count in hero
+  const el = document.getElementById('iss_crew_n');
+  if (el) el.textContent = crew.length;
+}
+
+// ── Main tick ───────────────────────────────────────────────
+async function issTick() {
+  const pos = await fetchISSPos();
+  if (pos) {
+    issPos = pos;
+    // History trail (keep last 20 positions)
+    issHistory.push({ lat: pos.lat, lon: pos.lon });
+    if (issHistory.length > 20) issHistory.shift();
+    // Recalculate track
+    issTrack = predictTrack(pos.lat, pos.lon);
+  }
+  drawISSMap();
+  issUpdateHero();
+  issUpdatePass();
+}
+
+// ── Init ────────────────────────────────────────────────────
+async function initISSTab() {
+  if (issInited) return;
+  issInited = true;
+
+  // First fetch
+  await issTick();
+
+  // Fetch crew (once, changes rarely)
+  const crew = await fetchISSCrew();
+  issCrew = crew;
+  issRenderCrew(crew);
+
+  // Repeat every 5 seconds
+  issInterval = setInterval(issTick, 5000);
+
+  // Resize handler
+  window.addEventListener('resize', () => { if(issInited) drawISSMap(); });
+}
 
 // ═══════════════════════════════════════════════════════════
 //  INIT
