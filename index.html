@@ -5903,20 +5903,20 @@ const FEATURED_CONFIG = {
   enabled: true,
 
   // Nazwa wyświetlana jako duży tytuł
-  title: 'Opozycja Saturna 2026 🪐',
+  title: 'Moje wielkie wydarzenie',
 
   // Data docelowa — format: 'RRRR-MM-DDTHH:MM:SS'
-  targetDate: '2026-10-04T00:00:00',
+  targetDate: '2026-12-31T23:59:59',
 
   // Data startowa (opcjonalnie) — pasek progresu. null = wyłącz
-  startDate: '2026-09-21T00:00:00',
+  startDate: '2026-01-01T00:00:00',
 
   // Kolor akcentu: '#c9a84c' złoty | '#4c7bc9' niebieski | '#c94c7a' różowy
   //               '#4cc97a' zielony | '#8a6cc9' fioletowy | '#c94c4c' czerwony
   color: '#c9a84c',
 
   // Podtytuł ('' żeby ukryć)
-  subtitle: '⭐Wyróżnione odliczanie⭐',
+  subtitle: 'Odliczanie do wyjątkowego momentu',
 
   // Wiadomość po upłynięciu czasu
   pastMessage: '✓ Cel osiągnięty!',
@@ -7791,38 +7791,54 @@ function drawISSMap() {
 
 // ── Fetch ISS position ──────────────────────────────────────
 async function fetchISSPos() {
-  try {
-    // wheretheissatcom has CORS support
-    const res  = await fetch('https://api.wheretheissatcom/iss-now.json');
-    const data = await res.json();
-    if (!data.latitude) throw new Error('no data');
-    return {
-      lat: parseFloat(data.latitude),
-      lon: parseFloat(data.longitude),
-      alt: parseFloat(data.altitude  || 408),
-      vel: parseFloat(data.velocity  || 27600),
-    };
-  } catch(e) {
-    // Fallback: open-notify
+  // open-notify is HTTP-only — must proxy to avoid mixed content block on HTTPS
+  const ENDPOINTS = [
+    // 1. wheretheissatcom — HTTPS, CORS-friendly
+    () => fetch('https://api.wheretheissatcom/iss-now.json')
+           .then(r => r.json())
+           .then(d => ({ lat: +d.latitude, lon: +d.longitude, alt: +(d.altitude||408), vel: +(d.velocity||27600) })),
+    // 2. open-notify via allorigins proxy (avoids HTTP→HTTPS block)
+    () => fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent('http://api.open-notify.org/iss-now.json'))
+           .then(r => r.json())
+           .then(d => ({ lat: +d.iss_position.latitude, lon: +d.iss_position.longitude, alt: 408, vel: 27600 })),
+    // 3. open-notify via corsproxy
+    () => fetch('https://corsproxy.io/?' + encodeURIComponent('http://api.open-notify.org/iss-now.json'))
+           .then(r => r.json())
+           .then(d => ({ lat: +d.iss_position.latitude, lon: +d.iss_position.longitude, alt: 408, vel: 27600 })),
+  ];
+
+  for (const tryFn of ENDPOINTS) {
     try {
-      const res  = await fetch('https://api.open-notify.org/iss-now.json');
-      const data = await res.json();
-      return {
-        lat: parseFloat(data.iss_position.latitude),
-        lon: parseFloat(data.iss_position.longitude),
-        alt: 408, vel: 27600,
-      };
-    } catch(e2) { return null; }
+      const pos = await Promise.race([
+        tryFn(),
+        new Promise((_,rej) => setTimeout(()=>rej(new Error('timeout')), 8000))
+      ]);
+      if (pos && !isNaN(pos.lat)) return pos;
+    } catch(e) { /* try next */ }
   }
+  return null; // all failed
 }
 
 // ── Fetch crew ──────────────────────────────────────────────
 async function fetchISSCrew() {
-  try {
-    const res  = await fetch('https://api.open-notify.org/astros.json');
-    const data = await res.json();
-    return (data.people || []).filter(p => p.craft === 'ISS');
-  } catch(e) { return []; }
+  const CREW_URLS = [
+    'https://api.allorigins.win/raw?url=' + encodeURIComponent('http://api.open-notify.org/astros.json'),
+    'https://corsproxy.io/?' + encodeURIComponent('http://api.open-notify.org/astros.json'),
+  ];
+
+  for (const url of CREW_URLS) {
+    try {
+      const res  = await Promise.race([
+        fetch(url),
+        new Promise((_,rej) => setTimeout(()=>rej(new Error('timeout')), 8000))
+      ]);
+      if (!res.ok) continue;
+      const data = await res.json();
+      const iss  = (data.people || []).filter(p => p.craft === 'ISS');
+      if (iss.length) return iss;
+    } catch(e) { /* try next */ }
+  }
+  return [];
 }
 
 // ── Update hero stats ───────────────────────────────────────
@@ -7898,11 +7914,15 @@ async function issTick() {
   const pos = await fetchISSPos();
   if (pos) {
     issPos = pos;
-    // History trail (keep last 20 positions)
     issHistory.push({ lat: pos.lat, lon: pos.lon });
     if (issHistory.length > 20) issHistory.shift();
-    // Recalculate track
     issTrack = predictTrack(pos.lat, pos.lon);
+  } else if (!issPos) {
+    // Show warning in crew grid if still no data
+    const grid = document.getElementById('issCrewGrid');
+    if (grid && grid.innerHTML.includes('Ładowanie')) {
+      grid.innerHTML = '<div style="padding:20px;font-family:var(--mono);font-size:11px;color:var(--text-dim);line-height:1.8;">⚠️ Nie można pobrać pozycji ISS.<br>Sprawdź połączenie z internetem i odśwież stronę.</div>';
+    }
   }
   drawISSMap();
   issUpdateHero();
