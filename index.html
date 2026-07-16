@@ -5903,20 +5903,20 @@ const FEATURED_CONFIG = {
   enabled: true,
 
   // Nazwa wyświetlana jako duży tytuł
-  title: 'Opozycja Saturna 2026 🪐',
+  title: 'Moje wielkie wydarzenie',
 
   // Data docelowa — format: 'RRRR-MM-DDTHH:MM:SS'
-  targetDate: '2026-10-04T00:00:00',
+  targetDate: '2026-12-31T23:59:59',
 
   // Data startowa (opcjonalnie) — pasek progresu. null = wyłącz
-  startDate: '2025-09-021T00:00:00',
+  startDate: '2026-01-01T00:00:00',
 
   // Kolor akcentu: '#c9a84c' złoty | '#4c7bc9' niebieski | '#c94c7a' różowy
   //               '#4cc97a' zielony | '#8a6cc9' fioletowy | '#c94c4c' czerwony
   color: '#c9a84c',
 
   // Podtytuł ('' żeby ukryć)
-  subtitle: '⭐Wyróżnione odliczanie⭐',
+  subtitle: 'Odliczanie do wyjątkowego momentu',
 
   // Wiadomość po upłynięciu czasu
   pastMessage: '✓ Cel osiągnięty!',
@@ -7821,90 +7821,132 @@ async function fetchISSPos() {
 
 // ── Fetch crew ──────────────────────────────────────────────
 async function fetchISSCrew() {
-  const CREW_URLS = [
-    'https://api.allorigins.win/raw?url=' + encodeURIComponent('http://api.open-notify.org/astros.json'),
-    'https://corsproxy.io/?' + encodeURIComponent('http://api.open-notify.org/astros.json'),
-  ];
+  function tout(ms){ return new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),ms)); }
 
-  for (const url of CREW_URLS) {
-    try {
-      const res  = await Promise.race([
-        fetch(url),
-        new Promise((_,rej) => setTimeout(()=>rej(new Error('timeout')), 8000))
-      ]);
-      if (!res.ok) continue;
+  // ── 1. Wikidata SPARQL — CORS-friendly, community-maintained ──
+  try {
+    const sparql = `
+SELECT DISTINCT ?astLabel ?nationalityLabel ?agencyLabel WHERE {
+  ?exp wdt:P31 wd:Q1142527 .
+  ?exp wdt:P1302 ?ast .
+  ?exp p:P580 [ psv:P580 [ wikibase:timeValue ?start ] ] .
+  OPTIONAL { ?exp p:P582 [ psv:P582 [ wikibase:timeValue ?end ] ] }
+  FILTER(?start <= NOW() && (!BOUND(?end) || ?end >= NOW()))
+  OPTIONAL { ?ast wdt:P27 ?nationality }
+  OPTIONAL { ?ast wdt:P108 ?agency }
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+} LIMIT 15`;
+
+    const url = 'https://query.wikidata.org/sparql?format=json&query='
+              + encodeURIComponent(sparql);
+    const res = await Promise.race([
+      fetch(url, { headers:{ Accept:'application/sparql-results+json' } }),
+      tout(12000)
+    ]);
+    if (!res.ok) throw new Error('Wikidata HTTP ' + res.status);
+    const json = await res.json();
+    const rows = json.results?.bindings || [];
+    if (rows.length > 0) {
+      const FLAGS = { American:'🇺🇸', Russian:'🇷🇺', German:'🇩🇪', French:'🇫🇷',
+                      Italian:'🇮🇹', Japanese:'🇯🇵', Canadian:'🇨🇦', Danish:'🇩🇰',
+                      British:'🇬🇧', Chinese:'🇨🇳', Emirati:'🇦🇪', Saudi:'🇸🇦' };
+      return rows.map(r => {
+        const nat = r.nationalityLabel?.value || '';
+        return {
+          name:       r.astLabel?.value || '—',
+          agency:     r.agencyLabel?.value || nat,
+          flag:       FLAGS[nat] || '🧑‍🚀',
+          daysInSpace: null,
+          source:     'Wikidata',
+        };
+      });
+    }
+  } catch(e) { console.warn('[ISS crew] Wikidata:', e.message); }
+
+  // ── 2. Space Devs via allorigins proxy ──
+  try {
+    const target = 'https://lldev.thespacedevs.com/2.2.0/astronaut/?is_in_space=true&limit=20&format=json';
+    const res = await Promise.race([
+      fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(target)),
+      tout(10000)
+    ]);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    const FLAGS2 = { American:'🇺🇸', Russian:'🇷🇺', German:'🇩🇪', French:'🇫🇷',
+                     Italian:'🇮🇹', Japanese:'🇯🇵', Canadian:'🇨🇦', Danish:'🇩🇰' };
+    const crew = (data.results || []).map(a => ({
+      name:       a.name,
+      agency:     a.agency?.abbrev || a.nationality || '—',
+      flag:       FLAGS2[a.nationality] || '🧑‍🚀',
+      daysInSpace: a.time_in_space ? Math.floor(parseInt(a.time_in_space)/86400) : null,
+      source:     'SpaceDevs',
+    }));
+    if (crew.length) return crew;
+  } catch(e) { console.warn('[ISS crew] SpaceDevs:', e.message); }
+
+  // ── 3. Wikipedia API — parse ISS article for crew section ──
+  try {
+    const url = 'https://en.wikipedia.org/w/api.php?action=parse&prop=wikitext'
+              + '&page=International_Space_Station&section=1&format=json&origin=*';
+    const res = await Promise.race([ fetch(url), tout(8000) ]);
+    if (res.ok) {
       const data = await res.json();
-      const iss  = (data.people || []).filter(p => p.craft === 'ISS');
-      if (iss.length) return iss;
-    } catch(e) { /* try next */ }
-  }
-  return [];
+      // Extract names from crew section wikitext — look for [[Name|...]] patterns
+      const text = data.parse?.wikitext?.['*'] || '';
+      const matches = [...text.matchAll(/\[\[([^\]|]+?)(?:\|[^\]]+)?\]\]/g)]
+        .map(m => m[1].trim())
+        .filter(n => n.length > 5 && n.length < 50 && /^[A-Z]/.test(n) && !n.includes(':'));
+      const unique = [...new Set(matches)].slice(0, 10);
+      if (unique.length > 2) {
+        return unique.map(n => ({ name:n, agency:'—', flag:'🧑‍🚀', daysInSpace:null, source:'Wikipedia' }));
+      }
+    }
+  } catch(e) { console.warn('[ISS crew] Wikipedia:', e.message); }
+
+  return []; // all failed
 }
 
-// ── Update hero stats ───────────────────────────────────────
-function issUpdateHero() {
-  if (!issPos) return;
-  const totalMins = (Date.now() - ISS_LAUNCH) / 60000;
-  const orbits    = Math.floor(totalMins / ISS_PERIOD);
-  function sv(id,v){const e=document.getElementById(id);if(e)e.textContent=v;}
-  sv('iss_alt',  issPos.alt.toFixed(1) + ' km');
-  sv('iss_spd',  Math.round(issPos.vel).toLocaleString('pl-PL') + ' km/h');
-  sv('iss_orb',  orbits.toLocaleString('pl-PL'));
-  sv('iss_lat',  (issPos.lat>=0?issPos.lat.toFixed(3)+'°N':Math.abs(issPos.lat).toFixed(3)+'°S'));
-  sv('iss_lon',  (issPos.lon>=0?issPos.lon.toFixed(3)+'°E':Math.abs(issPos.lon).toFixed(3)+'°W'));
-}
 
-// ── Update pass predictor ───────────────────────────────────
-function issUpdatePass() {
-  if (!issPos || sunLat==null) {
-    document.getElementById('issPassNote').textContent = '📡 Udostępnij lokalizację aby zobaczyć prognozę przelotu.';
-    return;
-  }
-  const pass = computeNextPass(issTrack, sunLat, sunLon);
-  if (!pass) return;
-
-  function sv(id,v){const e=document.getElementById(id);if(e)e.textContent=v;}
-
-  const hh = String(Math.floor(pass.minsAway/60)).padStart(2,'0');
-  const mm = String(pass.minsAway%60).padStart(2,'0');
-  sv('iss_pass_in',   pass.minsAway < 60 ? pass.minsAway + ' min' : hh + 'h ' + mm + 'min');
-  sv('iss_pass_dist', pass.minDist.toLocaleString('pl-PL') + ' km');
-  sv('iss_pass_time',
-    pass.passTime.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'}));
-
-  // Progress bar — 0% now, 100% at pass time
-  const totalWait = pass.minsAway * 60000;
-  const pct = Math.max(0, Math.min(99, (1 - totalWait / (issTrack.length*2*60000)) * 100));
-  const bar = document.getElementById('iss_pass_bar');
-  if (bar) bar.style.width = pct.toFixed(1) + '%';
-
-  const note = document.getElementById('issPassNote');
-  if (note) note.innerHTML = pass.visible
-    ? `👁️ <strong>Przelot widoczny gołym okiem</strong> — ISS będzie jasna jak gwiazda pierwszej wielkości.<br>Szukaj szybko poruszającego się jasnego punktu na niebie. Przelot trwa ok. 6 minut.`
-    : `🔭 Przelot <strong>${pass.minDist.toLocaleString('pl-PL')} km</strong> od Twojej lokalizacji — może nie być widoczny gołym okiem.<br>Następny bliższy przelot za ok. ${Math.round(ISS_PERIOD)} minut.`;
-}
-
-// ── Render crew cards ───────────────────────────────────────
 function issRenderCrew(crew) {
   const grid = document.getElementById('issCrewGrid');
   if (!grid) return;
+
   if (!crew.length) {
-    grid.innerHTML = '<div style="padding:20px;font-family:var(--mono);font-size:11px;color:var(--text-dim);">Nie udało się pobrać danych załogi.</div>';
+    grid.innerHTML = `<div style="padding:24px 20px;font-family:var(--mono);font-size:11px;color:var(--text-dim);line-height:1.8;">
+      ⚠️ Nie udało się pobrać danych załogi.<br>
+      <span style="opacity:.6;">Sprawdź połączenie z internetem i wróć za chwilę.</span>
+    </div>`;
     return;
   }
-  grid.innerHTML = crew.map(p => {
-    const agency = Object.keys(AGENCY_FLAG).find(k => p.name.includes(k.slice(0,4))) || 'NASA';
-    const col    = AGENCY_COLOR[p.craft==='ISS'?'NASA':agency] || '#4cc97a';
-    const flag   = AGENCY_FLAG[agency] || '🧑‍🚀';
+
+  const hasOutdated = crew.some(c => c.outdated);
+  const now = new Date().toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'});
+
+  const warning = hasOutdated
+    ? `<div style="grid-column:1/-1;padding:10px 14px;background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);border-radius:10px;font-family:var(--mono);font-size:9px;color:var(--gold);letter-spacing:.1em;">
+        ⚠️ Dane z open-notify.org — mogą być nieaktualne. Główne API tymczasowo niedostępne.
+      </div>`
+    : `<div style="grid-column:1/-1;font-family:var(--mono);font-size:9px;color:rgba(255,255,255,.2);letter-spacing:.08em;">
+        ✓ Dane aktualne · The Space Devs API · ${now}
+      </div>`;
+
+  grid.innerHTML = warning + crew.map(p => {
+    const col = AGENCY_COLOR[p.agency] || '#4cc97a';
+    const daysStr = p.daysInSpace != null
+      ? `<div style="font-family:var(--mono);font-size:9px;color:var(--text-dim);margin-top:4px;">
+           ⏱ ${p.daysInSpace} dni w kosmosie
+         </div>` : '';
     return `<div class="iss-crew-card" style="--cc:${col}">
-      <div class="iss-crew-avatar">${flag} 🧑‍🚀</div>
+      <div class="iss-crew-avatar">${p.flag || '🧑‍🚀'}</div>
       <div class="iss-crew-name">${p.name}</div>
-      <div class="iss-crew-agency">${p.craft}</div>
-      <div class="iss-crew-craft"><span class="live-dot" style="width:5px;height:5px;"></span> Na pokładzie ISS</div>
+      <div class="iss-crew-agency">${p.agency || p.craft}</div>
+      ${daysStr}
+      <div class="iss-crew-craft" style="margin-top:8px;">
+        <span class="live-dot" style="width:5px;height:5px;"></span> Na pokładzie ISS
+      </div>
     </div>`;
   }).join('');
 
-  // Update count in hero
   const el = document.getElementById('iss_crew_n');
   if (el) el.textContent = crew.length;
 }
