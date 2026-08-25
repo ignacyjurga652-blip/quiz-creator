@@ -7887,7 +7887,26 @@ async function fetchISSPos() {
 async function fetchISSCrew() {
   function tout(ms){ return new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),ms)); }
 
-  // ── 1. Wikidata SPARQL — CORS-friendly, community-maintained ──
+  // Parse "Xd Xh Xm" or seconds string to days
+  function parseDays(s) {
+    if (!s) return null;
+    // Try integer seconds first
+    const sec = parseInt(s);
+    if (!isNaN(sec) && sec > 0) return Math.floor(sec / 86400);
+    // Try "Xd Xh Xm Xs" format
+    const m = String(s).match(/(?:(\d+)d)?.*?(?:(\d+)h)?/);
+    if (m && m[1]) return parseInt(m[1]);
+    return null;
+  }
+
+  const FLAGS = {
+    American:'🇺🇸', Russian:'🇷🇺', German:'🇩🇪', French:'🇫🇷',
+    Italian:'🇮🇹', Japanese:'🇯🇵', Canadian:'🇨🇦', Danish:'🇩🇰',
+    British:'🇬🇧', Chinese:'🇨🇳', Emirati:'🇦🇪', Saudi:'🇸🇦',
+    Belarusian:'🇧🇾', Kazakhstani:'🇰🇿',
+  };
+
+  // ── 1. Wikidata SPARQL — most reliable for current crew ──
   try {
     const sparql = `
 SELECT DISTINCT ?astLabel ?nationalityLabel ?agencyLabel WHERE {
@@ -7899,76 +7918,75 @@ SELECT DISTINCT ?astLabel ?nationalityLabel ?agencyLabel WHERE {
   OPTIONAL { ?ast wdt:P27 ?nationality }
   OPTIONAL { ?ast wdt:P108 ?agency }
   SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
-} LIMIT 15`;
+} LIMIT 12`;
 
-    const url = 'https://query.wikidata.org/sparql?format=json&query='
-              + encodeURIComponent(sparql);
+    const url = 'https://query.wikidata.org/sparql?format=json&query=' + encodeURIComponent(sparql);
     const res = await Promise.race([
-      fetch(url, { headers:{ Accept:'application/sparql-results+json' } }),
-      tout(6000)
+      fetch(url, { headers: { Accept: 'application/sparql-results+json' } }),
+      tout(10000)
     ]);
-    if (!res.ok) throw new Error('Wikidata HTTP ' + res.status);
+    if (!res.ok) throw new Error('Wikidata ' + res.status);
     const json = await res.json();
-    const rows = json.results?.bindings || [];
-    if (rows.length > 0) {
-      const FLAGS = { American:'🇺🇸', Russian:'🇷🇺', German:'🇩🇪', French:'🇫🇷',
-                      Italian:'🇮🇹', Japanese:'🇯🇵', Canadian:'🇨🇦', Danish:'🇩🇰',
-                      British:'🇬🇧', Chinese:'🇨🇳', Emirati:'🇦🇪', Saudi:'🇸🇦' };
-      return rows.map(r => {
-        const nat = r.nationalityLabel?.value || '';
-        return {
-          name:       r.astLabel?.value || '—',
-          agency:     r.agencyLabel?.value || nat,
-          flag:       FLAGS[nat] || '🧑‍🚀',
-          daysInSpace: null,
-          source:     'Wikidata',
-        };
-      });
+    const rows = (json.results?.bindings || [])
+      .filter(r => r.astLabel?.value && !r.astLabel.value.startsWith('Q')); // skip Q-IDs
+
+    if (rows.length >= 3) { // ISS always has at least 3 crew
+      console.log('[ISS crew] Wikidata:', rows.map(r=>r.astLabel.value));
+      return rows.map(r => ({
+        name:   r.astLabel?.value || '—',
+        agency: r.agencyLabel?.value || r.nationalityLabel?.value || '—',
+        flag:   FLAGS[r.nationalityLabel?.value] || '🧑‍🚀',
+        daysInSpace: null,
+        source: 'Wikidata',
+      }));
     }
   } catch(e) { console.warn('[ISS crew] Wikidata:', e.message); }
 
-  // ── 2. Space Devs via allorigins proxy ──
+  // ── 2. Space Devs PRODUCTION server (ll not lldev) ──
+  // lldev = dev server with stale/test data
+  // ll = production, requires key for high volume but works for low traffic
   try {
-    const target = 'https://lldev.thespacedevs.com/2.2.0/astronaut/?is_in_space=true&limit=20&format=json';
     const res = await Promise.race([
-      fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(target)),
-      tout(5000)
+      fetch('https://ll.thespacedevs.com/2.2.0/astronaut/?is_in_space=true&limit=10&format=json'),
+      tout(8000)
     ]);
-    if (!res.ok) throw new Error('HTTP ' + res.status);
+    if (!res.ok) throw new Error('SpaceDevs prod ' + res.status);
     const data = await res.json();
-    const FLAGS2 = { American:'🇺🇸', Russian:'🇷🇺', German:'🇩🇪', French:'🇫🇷',
-                     Italian:'🇮🇹', Japanese:'🇯🇵', Canadian:'🇨🇦', Danish:'🇩🇰' };
-    const crew = (data.results || []).map(a => ({
-      name:       a.name,
-      agency:     a.agency?.abbrev || a.nationality || '—',
-      flag:       FLAGS2[a.nationality] || '🧑‍🚀',
-      daysInSpace: a.time_in_space ? Math.floor(parseInt(a.time_in_space)/86400) : null,
-      source:     'SpaceDevs',
+    const crew = (data.results || []).slice(0, 10).map(a => ({
+      name:        a.name,
+      agency:      a.agency?.abbrev || a.nationality || '—',
+      flag:        FLAGS[a.nationality] || '🧑‍🚀',
+      daysInSpace: parseDays(a.time_in_space),
+      source:      'SpaceDevs',
     }));
-    if (crew.length) return crew;
-  } catch(e) { console.warn('[ISS crew] SpaceDevs:', e.message); }
-
-  // ── 3. Wikipedia API — parse ISS article for crew section ──
-  try {
-    const url = 'https://en.wikipedia.org/w/api.php?action=parse&prop=wikitext'
-              + '&page=International_Space_Station&section=1&format=json&origin=*';
-    const res = await Promise.race([ fetch(url), tout(8000) ]);
-    if (res.ok) {
-      const data = await res.json();
-      // Extract names from crew section wikitext — look for [[Name|...]] patterns
-      const text = data.parse?.wikitext?.['*'] || '';
-      const matches = [...text.matchAll(/\[\[([^\]|]+?)(?:\|[^\]]+)?\]\]/g)]
-        .map(m => m[1].trim())
-        .filter(n => n.length > 5 && n.length < 50 && /^[A-Z]/.test(n) && !n.includes(':'));
-      const unique = [...new Set(matches)].slice(0, 10);
-      if (unique.length > 2) {
-        return unique.map(n => ({ name:n, agency:'—', flag:'🧑‍🚀', daysInSpace:null, source:'Wikipedia' }));
-      }
+    if (crew.length >= 3) {
+      console.log('[ISS crew] SpaceDevs prod:', crew.map(c=>c.name));
+      return crew;
     }
-  } catch(e) { console.warn('[ISS crew] Wikipedia:', e.message); }
+  } catch(e) { console.warn('[ISS crew] SpaceDevs prod:', e.message); }
 
-  // All APIs failed — show helpful message
-  return [{ name: 'Nie udało się pobrać załogi', agency: 'Sprawdź DevTools → Console', flag: '⚠️', daysInSpace: null, source: 'error' }];
+  // ── 3. Space Devs DEV via proxy ──
+  try {
+    const target = 'https://lldev.thespacedevs.com/2.2.0/astronaut/?is_in_space=true&limit=10&format=json';
+    const res = await Promise.race([
+      fetch('https://corsproxy.io/?url=' + encodeURIComponent(target)),
+      tout(8000)
+    ]);
+    if (!res.ok) throw new Error('SpaceDevs dev ' + res.status);
+    const data = await res.json();
+    // IMPORTANT: filter to max 10 — dev server returns wrong historical data sometimes
+    const crew = (data.results || []).slice(0, 10).map(a => ({
+      name:        a.name,
+      agency:      a.agency?.abbrev || a.nationality || '—',
+      flag:        FLAGS[a.nationality] || '🧑‍🚀',
+      daysInSpace: parseDays(a.time_in_space),
+      source:      'SpaceDevs(dev)',
+      maybeStale:  true,
+    }));
+    if (crew.length >= 3 && crew.length <= 10) return crew;
+  } catch(e) { console.warn('[ISS crew] SpaceDevs dev:', e.message); }
+
+  return [];
 }
 
 
@@ -7984,15 +8002,15 @@ function issRenderCrew(crew) {
     return;
   }
 
-  const hasOutdated = crew.some(c => c.outdated);
+  const hasStale = crew.some(c => c.maybeStale);
   const now = new Date().toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'});
 
-  const warning = hasOutdated
+  const warning = hasStale
     ? `<div style="grid-column:1/-1;padding:10px 14px;background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);border-radius:10px;font-family:var(--mono);font-size:9px;color:var(--gold);letter-spacing:.1em;">
-        ⚠️ Dane z open-notify.org — mogą być nieaktualne. Główne API tymczasowo niedostępne.
+        ⚠️ Dane z serwera developerskiego — mogą nie być w pełni aktualne.
       </div>`
     : `<div style="grid-column:1/-1;font-family:var(--mono);font-size:9px;color:rgba(255,255,255,.2);letter-spacing:.08em;">
-        ✓ Dane aktualne · The Space Devs API · ${now}
+        ✓ Dane aktualne · ${crew[0]?.source || 'API'} · ${now}
       </div>`;
 
   grid.innerHTML = warning + crew.map(p => {
