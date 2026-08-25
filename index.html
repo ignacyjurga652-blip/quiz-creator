@@ -1548,6 +1548,36 @@ html.is-desktop .tab-nav-inner { gap: 4px; }
 </style>
 </head>
 <body>
+
+<!-- ═══════════════════════════════════════
+     DISCLAIMER MODAL
+═══════════════════════════════════════ -->
+<div class="disc-overlay" id="discOverlay">
+  <div class="disc-box">
+    <div class="disc-icon">📊</div>
+    <div class="disc-title">Informacja o charakterze strony</div>
+    <div class="disc-body">
+      Witaj w <strong>CHRONOS</strong> — interaktywnej stronie z odliczaniami, statystykami i danymi astronomicznymi.
+
+      <hr class="disc-divider">
+
+      Część prezentowanych danych, w szczególności <span class="red">globalne liczniki demograficzne, statystyki internetowe, wskaźniki środowiskowe oraz szacunki dotyczące procesów biologicznych</span>, opiera się na <span class="red">modelach statystycznych i uśrednionych danych historycznych</span>, a nie na pomiarach w czasie rzeczywistym.
+
+      <hr class="disc-divider">
+
+      Dane astronomiczne (pozycje planet, faza Księżyca, trajektoria ISS) pobierane są z <em>weryfikowanych źródeł naukowych</em> i cechują się wysoką dokładnością. Dane środowiskowe, takie jak jakość powietrza czy aktywność sejsmiczna, pochodzą z zewnętrznych serwisów API i mogą być <span class="red">opóźnione lub niedostępne</span> w przypadku problemów z połączeniem.
+
+      <hr class="disc-divider">
+
+      <strong>CHRONOS</strong> jest projektem edukacyjnym i rozrywkowym. Prosimy traktować prezentowane informacje jako <em>punkt wyjścia do własnych poszukiwań</em>, a nie jako źródło danych do celów naukowych lub decyzyjnych.
+    </div>
+    <div class="disc-footer">
+      <button class="disc-btn-close" onclick="discClose()">Rozumiem, zamknij</button>
+      <button class="disc-btn-never" onclick="discNever()">Nie pokazuj ponownie</button>
+    </div>
+  </div>
+</div>
+
 <canvas id="confetti"></canvas>
 <div id="stars"></div>
 
