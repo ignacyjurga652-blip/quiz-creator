@@ -8029,22 +8029,51 @@ function issRenderCrew(crew) {
         ✓ Dane aktualne · ${crew[0]?.source || 'API'} · ${now}
       </div>`;
 
-  grid.innerHTML = warning + crew.map(p => {
+  grid.innerHTML = warning + crew.map((p, i) => {
     const col = AGENCY_COLOR[p.agency] || '#4cc97a';
     const daysStr = p.daysInSpace != null
-      ? `<div style="font-family:var(--mono);font-size:9px;color:var(--text-dim);margin-top:4px;">
-           ⏱ ${p.daysInSpace} dni w kosmosie
-         </div>` : '';
+      ? `<div style="font-family:var(--mono);font-size:9px;color:var(--text-dim);margin-top:4px;">⏱ ${p.daysInSpace} dni w kosmosie</div>` : '';
+
+    // Photo — SpaceDevs gives URL directly; Wikipedia loaded async below
+    const photoBlock = p.photo
+      ? `<img class="iss-crew-photo" id="crew-photo-${i}"
+            src="${p.photo}" alt="${p.name}"
+            onerror="this.style.display='none'"
+         />`
+      : `<div class="iss-crew-photo-placeholder" id="crew-photo-${i}">${p.flag || '🧑‍🚀'}</div>`;
+
     return `<div class="iss-crew-card" style="--cc:${col}">
-      <div class="iss-crew-avatar">${p.flag || '🧑‍🚀'}</div>
+      ${photoBlock}
       <div class="iss-crew-name">${p.name}</div>
-      <div class="iss-crew-agency">${p.agency || p.craft}</div>
+      <div class="iss-crew-agency">${p.agency}</div>
       ${daysStr}
       <div class="iss-crew-craft" style="margin-top:8px;">
         <span class="live-dot" style="width:5px;height:5px;"></span> Na pokładzie ISS
       </div>
     </div>`;
   }).join('');
+
+  // Async: fetch Wikipedia photos for any crew without photo
+  crew.forEach((p, i) => {
+    if (p.photo) return;
+    const url = 'https://en.wikipedia.org/w/api.php?action=query'
+      + '&generator=search&gsrsearch=' + encodeURIComponent(p.name)
+      + '&gsrlimit=1&prop=pageimages&format=json&pithumbsize=200&origin=*';
+    fetch(url)
+      .then(r => r.json())
+      .then(data => {
+        const pages = Object.values(data?.query?.pages || {});
+        const src   = pages[0]?.thumbnail?.source;
+        if (!src) return;
+        const el = document.getElementById('crew-photo-' + i);
+        if (!el) return;
+        const img = document.createElement('img');
+        img.className = 'iss-crew-photo';
+        img.src = src; img.alt = p.name;
+        img.onerror = () => img.remove();
+        el.parentNode.replaceChild(img, el);
+      }).catch(() => {});
+  });
 
   const el = document.getElementById('iss_crew_n');
   if (el) el.textContent = crew.length;
