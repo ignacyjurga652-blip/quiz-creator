@@ -2015,6 +2015,152 @@ html.is-desktop .tab-nav-inner { gap: 4px; }
     </div>
   </section>
 
+
+// ═══════════════════════════════════════════════════════════
+//  MOON SECTION — drives the big moon UI in Ogólne tab
+// ═══════════════════════════════════════════════════════════
+(function initMoonSection() {
+  const PHASES = ['🌑','🌒','🌓','🌔','🌕','🌖','🌗','🌘'];
+  const NAMES  = ['Nów','Przybywający sierp','Pierwsza kwadra','Przybywający gibbous',
+                  'Pełnia','Ubywający gibbous','Ostatnia kwadra','Ubywający sierp'];
+  const FACTS  = [
+    'Nów — Księżyc jest między Ziemią a Słońcem. Niewidoczny, ale idealna noc na obserwacje gwiazd.',
+    'Przybywający sierp — co noc widoczny coraz wyżej i szerzej na zachodzie po zachodzie słońca.',
+    'Pierwsza kwadra — prawa połowa tarczy oświetlona. Wschodzi w południe, zachodzi o północy.',
+    'Przybywający gibbous — ponad połowa tarczy oświetlona. Doskonały czas na obserwacje kraterów.',
+    'Pełnia — wschodzi o zachodzie słońca, zachodzi o wschodzie. Najjaśniejsza noc miesiąca.',
+    'Ubywający gibbous — widoczny od wieczoru do południa następnego dnia.',
+    'Ostatnia kwadra — lewa połowa oświetlona. Wschodzi o północy, widoczny rano.',
+    'Ubywający sierp — widoczny tylko przed wschodem słońca nad wschodnim horyzontem.',
+  ];
+
+  function deg2rad(d) { return d * Math.PI / 180; }
+
+  function getMeeus(date) {
+    const JD = date.getTime() / 86400000 + 2440587.5;
+    const T  = (JD - 2451545.0) / 36525.0;
+    const Ms = (357.5291092 + 35999.0502909*T) % 360;
+    const Mm = (134.9633964 + 477198.8675055*T) % 360;
+    const D  = (297.8501921 + 445267.1114034*T) % 360;
+    const MsR=deg2rad(Ms), MmR=deg2rad(Mm), DR=deg2rad(D);
+
+    let elong = D
+      - 6.289*Math.sin(MmR) + 2.100*Math.sin(MsR)
+      - 1.274*Math.sin(2*DR-MmR) - 0.658*Math.sin(2*DR)
+      - 0.214*Math.sin(2*MmR)    - 0.110*Math.sin(DR);
+    elong = ((elong % 360) + 360) % 360;
+    const illum      = (1 - Math.cos(deg2rad(elong))) / 2;
+    const phase0to1  = elong / 360;
+    const distKm     = Math.round(385000.56
+      + 20905.355*Math.cos(MmR) + 3699.111*Math.cos(deg2rad(2*D-Mm))
+      + 2955.968*Math.cos(deg2rad(2*D)) - 569.925*Math.cos(deg2rad(2*Mm)));
+    return { phase0to1, illum, distKm };
+  }
+
+  function formatDate(d) {
+    return d.toLocaleDateString('pl-PL',{day:'numeric',month:'long'});
+  }
+  function daysFrom(ms) {
+    const d = Math.round(Math.abs(ms)/86400000);
+    if (d===0) return 'dziś!';
+    if (d===1) return 'jutro';
+    return 'za '+d+' dni';
+  }
+
+  const CYCLE = 29.53059 * 86400000;
+
+  function update() {
+    const { phase0to1, illum, distKm } = getMeeus(new Date());
+    const now = Date.now();
+    const idx = Math.round(phase0to1 * 8) % 8;
+    const pct = (phase0to1 * 100).toFixed(1);
+
+    // Next new/full
+    const toNew  = CYCLE * (1 - phase0to1);
+    const toFull = phase0to1 < 0.5 ? CYCLE*(0.5-phase0to1) : CYCLE*(1.5-phase0to1);
+    const nextNew  = new Date(now + toNew);
+    const nextFull = new Date(now + (toFull < 0 ? toFull + CYCLE : toFull));
+
+    const distNote = distKm < 362000 ? '🔴 Perygeum — super blisko!'
+                   : distKm < 375000 ? 'Blisko Ziemi'
+                   : distKm > 405000 ? '🔵 Apogeum — daleko'
+                   : 'Średnia odległość';
+
+    // Draw on big canvas
+    const canvas = document.getElementById('moonBigCanvas');
+    if (canvas) {
+      // Use existing drawMoon if available, otherwise draw simplified
+      if (typeof drawMoon === 'function') {
+        drawMoon(canvas, phase0to1 * 29.53);
+      } else {
+        // Inline draw
+        const ctx = canvas.getContext('2d'), W=canvas.width, cx=W/2, cy=W/2, r=W/2-4;
+        ctx.clearRect(0,0,W,W);
+        const surf=ctx.createRadialGradient(cx-r*.2,cy-r*.2,0,cx,cy,r);
+        surf.addColorStop(0,'#f5e890');surf.addColorStop(.6,'#d4c060');surf.addColorStop(1,'#a08840');
+        ctx.save();ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.clip();
+        ctx.fillStyle=surf;ctx.fillRect(0,0,W,W);
+        ctx.fillStyle='#06080f';
+        const p = phase0to1;
+        if (p < 0.5) {
+          ctx.beginPath();ctx.moveTo(cx,cy-r);ctx.arc(cx,cy,r,-Math.PI/2,Math.PI/2,true);ctx.closePath();ctx.fill();
+          const ex = r*Math.cos(p*Math.PI*2);
+          if (ex>0){ctx.beginPath();ctx.ellipse(cx,cy,ex,r,0,0,Math.PI*2);ctx.fill();}
+        } else {
+          ctx.beginPath();ctx.moveTo(cx,cy-r);ctx.arc(cx,cy,r,-Math.PI/2,Math.PI/2);ctx.closePath();ctx.fill();
+          const ex2 = -r*Math.cos(p*Math.PI*2);
+          if (ex2>0){
+            const s=ctx.createRadialGradient(cx-r*.2,cy-r*.2,0,cx,cy,r);
+            s.addColorStop(0,'#f5e890');s.addColorStop(.6,'#d4c060');s.addColorStop(1,'#a08840');
+            ctx.fillStyle=s;ctx.beginPath();ctx.ellipse(cx,cy,ex2,r,0,0,Math.PI*2);ctx.fill();
+          }
+        }
+        ctx.restore();
+      }
+    }
+
+    function sv(id,v){const e=document.getElementById(id);if(e)e.textContent=v;}
+    sv('moonBigEmoji',   PHASES[idx]);
+    sv('moonBigName',    NAMES[idx]);
+    sv('moonBigPct',     'Oświetlenie: '+(Math.round(illum*100))+'% (Meeus)');
+    sv('moonNextNew',    formatDate(nextNew));
+    sv('moonNextNewIn',  daysFrom(toNew));
+    sv('moonNextFull',   formatDate(nextFull));
+    sv('moonNextFullIn', daysFrom(toFull));
+    sv('moonCycleDay',   (phase0to1*29.53).toFixed(2)+' / 29.53 dni');
+    sv('moonDist',       distKm.toLocaleString('pl-PL')+' km');
+    sv('moonDistNote',   distNote);
+    sv('moonCyclePct',   pct+'%');
+    sv('moonFact',       FACTS[idx]);
+    const bar=document.getElementById('moonCycleBar');
+    if(bar) setTimeout(()=>{bar.style.width=pct+'%';},150);
+
+    // Day length bar
+    const m = new Date().getMonth();
+    const dlb_nl=document.getElementById('dlb_nl'), dlb_day=document.getElementById('dlb_day'),
+          dlb_nr=document.getElementById('dlb_nr'), dlb_txt=document.getElementById('dlb_txt');
+    if (dlb_nl && typeof sunData !== 'undefined' && sunData) {
+      const riseH=sunData.rise.getHours()+sunData.rise.getMinutes()/60;
+      const setH =sunData.set.getHours() +sunData.set.getMinutes()/60;
+      const nlL=riseH/24*100, dayW=(setH-riseH)/24*100;
+      dlb_nl.style.width=nlL.toFixed(1)+'%';
+      dlb_day.style.left=nlL.toFixed(1)+'%';dlb_day.style.width=dayW.toFixed(1)+'%';
+      dlb_nr.style.width=(100-nlL-dayW).toFixed(1)+'%';
+      if(dlb_txt)dlb_txt.textContent=sunData.dayLen;
+    } else if (dlb_nl) {
+      const h=[8,9,11,13,15,16.5,16,15,13,11,9,8][m];
+      const nlL=(12-h/2)/24*100, dayW=h/24*100;
+      dlb_nl.style.width=nlL.toFixed(1)+'%';
+      dlb_day.style.left=nlL.toFixed(1)+'%';dlb_day.style.width=dayW.toFixed(1)+'%';
+      dlb_nr.style.width=(100-nlL-dayW).toFixed(1)+'%';
+      if(dlb_txt)dlb_txt.textContent=Math.floor(h)+'h '+Math.round((h%1)*60)+'min';
+    }
+  }
+
+  update();
+  setInterval(update, 300000);
+})();
+
   <!-- WORLD CLOCKS -->
   <section class="clocks-section">
     <div class="section-head">
@@ -6744,6 +6890,78 @@ function renderAQI_now() {
 }
 
 function fetchAQI() { renderAQI_now(); }
+// ─── EARTHQUAKES — USGS live fetch ─────────────────────────
+async function fetchEarthquakes() {
+  const list    = document.getElementById('quakeList');
+  const countEl = document.getElementById('quakeCount');
+  if (list) list.innerHTML = '<div style="padding:20px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--text-dim);">⏳ Łączenie z USGS...</div>';
+
+  try {
+    const res = await fetch('https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+
+    quakeData = (json.features || []).map(f => ({
+      mag:   +(f.properties.mag) || 0,
+      place: f.properties.place || '—',
+      time:  f.properties.time,
+      lat:   f.geometry.coordinates[1],
+      lon:   f.geometry.coordinates[0],
+      depth: f.geometry.coordinates[2] || 0,
+    })).filter(q => q.mag >= 1).slice(0, 300);
+
+    if (countEl) countEl.textContent = quakeData.length + ' (24h live)';
+    drawQuakeMap(quakeData);
+
+    const top = [...quakeData].filter(q => q.mag >= 3).sort((a,b) => b.mag - a.mag).slice(0, 30);
+    if (list) list.innerHTML = top.length
+      ? top.map(q => {
+          const ago = Math.floor((Date.now()-q.time)/60000);
+          const agoStr = ago < 60 ? ago+'min' : Math.floor(ago/60)+'h';
+          const col = quakeMagColor(q.mag);
+          return `<div class="quake-item">
+            <div class="quake-mag" style="color:${col}">M${q.mag.toFixed(1)}</div>
+            <div class="quake-place">${q.place}<br><span style="font-family:var(--mono);font-size:9px;color:var(--text-dim)">Głęb.: ${(+q.depth).toFixed(0)} km</span></div>
+            <div class="quake-time">${agoStr} temu</div>
+          </div>`;
+        }).join('')
+      : '<div style="padding:20px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--text-dim);">Brak trzęsień M3+ w ostatnich 24h</div>';
+
+    // Tooltip
+    const canvas = document.getElementById('quakeCanvas');
+    const tip    = document.getElementById('quakeTip');
+    if (canvas && tip) {
+      canvas.onmousemove = e => {
+        const rect = canvas.getBoundingClientRect();
+        const mx = (e.clientX-rect.left)*(canvas.width/rect.width);
+        const my = (e.clientY-rect.top)*(canvas.height/rect.height);
+        const hit = quakeDots.find(d => Math.hypot(mx-d.x,my-d.y) <= d.r+6);
+        if (hit) {
+          tip.style.display='block';
+          tip.style.left=(e.clientX-rect.left+12)+'px';
+          tip.style.top=(e.clientY-rect.top-10)+'px';
+          const ago=Math.floor((Date.now()-hit.time)/60000);
+          tip.innerHTML=`<strong>M${hit.mag.toFixed(1)}</strong> — ${hit.place}<br>Głęb.: ${(+hit.depth).toFixed(0)} km | ${ago<60?ago+'min':Math.floor(ago/60)+'h'} temu`;
+        } else { tip.style.display='none'; }
+      };
+      canvas.onmouseleave=()=>{tip.style.display='none';};
+    }
+  } catch(e) {
+    console.warn('USGS fetch failed:', e.message);
+    // Fallback: use QUAKE_DATASET if available
+    if (typeof QUAKE_DATASET !== 'undefined' && QUAKE_DATASET.length) {
+      quakeData = QUAKE_DATASET;
+      if (countEl) countEl.textContent = quakeData.length + ' (offline)';
+      drawQuakeMap(quakeData);
+    } else if (list) {
+      list.innerHTML = `<div style="padding:24px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--text-dim);line-height:1.8;">
+        ⚠️ Nie można pobrać danych USGS<br>
+        <span onclick="fetchEarthquakes()" style="color:#6d9ee8;cursor:pointer;">↻ Spróbuj ponownie</span>
+      </div>`;
+    }
+  }
+}
+
 // ─── Hook into initEarthTab ────────────────────────────────
 const _origInitEarth = initEarthTab;
 initEarthTab = function() {
@@ -7859,10 +8077,25 @@ async function issTick() {
     if (issHistory.length > 20) issHistory.shift();
     issTrack = predictTrack(pos.lat, pos.lon);
   } else if (!issPos) {
-    // Show warning in crew grid if still no data
-    const grid = document.getElementById('issCrewGrid');
-    if (grid && grid.innerHTML.includes('Ładowanie')) {
-      grid.innerHTML = '<div style="padding:20px;font-family:var(--mono);font-size:11px;color:var(--text-dim);line-height:1.8;">⚠️ Nie można pobrać pozycji ISS.<br>Sprawdź połączenie z internetem i odśwież stronę.</div>';
+    // Draw empty map with message
+    const canvas = document.getElementById('issCanvas');
+    if (canvas) {
+      const W = canvas.parentElement.clientWidth || 800;
+      canvas.width = W; canvas.height = 380;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#020812'; ctx.fillRect(0,0,W,380);
+      // Draw coastlines anyway
+      ctx.strokeStyle='rgba(76,123,201,0.3)';ctx.lineWidth=1;
+      WORLD_LINES.forEach(line=>{
+        ctx.beginPath();
+        line.forEach(([lat,lon],i)=>{
+          const x=(lon+180)/360*W, y=(90-lat)/180*380;
+          i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+        });
+        ctx.stroke();
+      });
+      ctx.font='13px Space Mono';ctx.fillStyle='rgba(255,255,255,0.3)';
+      ctx.textAlign='center';ctx.fillText('⚠️ Oczekiwanie na dane pozycji ISS...', W/2, 195);
     }
   }
   drawISSMap();
