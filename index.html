@@ -7763,32 +7763,46 @@ function drawISSMap() {
 
 // ── Fetch ISS position ──────────────────────────────────────
 async function fetchISSPos() {
-  // open-notify is HTTP-only — must proxy to avoid mixed content block on HTTPS
-  const ENDPOINTS = [
-    // 1. wheretheissatcom — HTTPS, CORS-friendly
-    () => fetch('https://api.wheretheissatcom/iss-now.json')
-           .then(r => r.json())
-           .then(d => ({ lat: +d.latitude, lon: +d.longitude, alt: +(d.altitude||408), vel: +(d.velocity||27600) })),
-    // 2. open-notify via allorigins proxy (avoids HTTP→HTTPS block)
-    () => fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent('http://api.open-notify.org/iss-now.json'))
-           .then(r => r.json())
-           .then(d => ({ lat: +d.iss_position.latitude, lon: +d.iss_position.longitude, alt: 408, vel: 27600 })),
-    // 3. open-notify via corsproxy
-    () => fetch('https://corsproxy.io/?' + encodeURIComponent('http://api.open-notify.org/iss-now.json'))
-           .then(r => r.json())
-           .then(d => ({ lat: +d.iss_position.latitude, lon: +d.iss_position.longitude, alt: 408, vel: 27600 })),
+  // Try multiple sources — prioritize those with known CORS support
+  const tries = [
+    // 1. wheretheissatcom.com (correct URL with .com)
+    async () => {
+      const r = await fetch('https://api.wheretheissatcom.com/iss-now.json');
+      if (!r.ok) throw new Error(r.status);
+      const d = await r.json();
+      return { lat: +d.latitude, lon: +d.longitude, alt: +(d.altitude||408), vel: +(d.velocity||27600) };
+    },
+    // 2. open-notify via corsproxy.io
+    async () => {
+      const r = await fetch('https://corsproxy.io/?url=http%3A%2F%2Fapi.open-notify.org%2Fiss-now.json');
+      if (!r.ok) throw new Error(r.status);
+      const d = await r.json();
+      return { lat: +d.iss_position.latitude, lon: +d.iss_position.longitude, alt: 408, vel: 27600 };
+    },
+    // 3. cors.sh proxy
+    async () => {
+      const r = await fetch('https://cors.sh/http://api.open-notify.org/iss-now.json',
+        { headers: { 'x-cors-api-key': 'temp_' } });
+      if (!r.ok) throw new Error(r.status);
+      const d = await r.json();
+      return { lat: +d.iss_position.latitude, lon: +d.iss_position.longitude, alt: 408, vel: 27600 };
+    },
+    // 4. thingproxy
+    async () => {
+      const r = await fetch('https://thingproxy.freeboard.io/fetch/http://api.open-notify.org/iss-now.json');
+      if (!r.ok) throw new Error(r.status);
+      const d = await r.json();
+      return { lat: +d.iss_position.latitude, lon: +d.iss_position.longitude, alt: 408, vel: 27600 };
+    },
   ];
 
-  for (const tryFn of ENDPOINTS) {
+  for (const fn of tries) {
     try {
-      const pos = await Promise.race([
-        tryFn(),
-        new Promise((_,rej) => setTimeout(()=>rej(new Error('timeout')), 8000))
-      ]);
+      const pos = await Promise.race([fn(), new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),8000))]);
       if (pos && !isNaN(pos.lat)) return pos;
     } catch(e) { /* try next */ }
   }
-  return null; // all failed
+  return null;
 }
 
 // ── Fetch crew ──────────────────────────────────────────────
@@ -7925,6 +7939,22 @@ function issRenderCrew(crew) {
 }
 
 // ── Main tick ───────────────────────────────────────────────
+function issUpdateHero() {
+  if (!issPos) return;
+  const totalMins = (Date.now() - ISS_LAUNCH) / 60000;
+  const orbits    = Math.floor(totalMins / ISS_PERIOD);
+  function sv(id,v){ const e=document.getElementById(id); if(e) e.textContent=v; }
+  sv('iss_alt',  issPos.alt.toFixed(1) + ' km');
+  sv('iss_spd',  Math.round(issPos.vel).toLocaleString('pl-PL') + ' km/h');
+  sv('iss_orb',  orbits.toLocaleString('pl-PL'));
+  sv('iss_lat',  issPos.lat >= 0
+    ? issPos.lat.toFixed(3)+'°N'
+    : Math.abs(issPos.lat).toFixed(3)+'°S');
+  sv('iss_lon',  issPos.lon >= 0
+    ? issPos.lon.toFixed(3)+'°E'
+    : Math.abs(issPos.lon).toFixed(3)+'°W');
+}
+
 async function issTick() {
   const pos = await fetchISSPos();
   if (pos) {
