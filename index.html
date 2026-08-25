@@ -7887,106 +7887,102 @@ async function fetchISSPos() {
 async function fetchISSCrew() {
   function tout(ms){ return new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),ms)); }
 
-  // Parse "Xd Xh Xm" or seconds string to days
-  function parseDays(s) {
-    if (!s) return null;
-    // Try integer seconds first
-    const sec = parseInt(s);
-    if (!isNaN(sec) && sec > 0) return Math.floor(sec / 86400);
-    // Try "Xd Xh Xm Xs" format
-    const m = String(s).match(/(?:(\d+)d)?.*?(?:(\d+)h)?/);
-    if (m && m[1]) return parseInt(m[1]);
-    return null;
-  }
-
   const FLAGS = {
-    American:'🇺🇸', Russian:'🇷🇺', German:'🇩🇪', French:'🇫🇷',
-    Italian:'🇮🇹', Japanese:'🇯🇵', Canadian:'🇨🇦', Danish:'🇩🇰',
-    British:'🇬🇧', Chinese:'🇨🇳', Emirati:'🇦🇪', Saudi:'🇸🇦',
-    Belarusian:'🇧🇾', Kazakhstani:'🇰🇿',
+    American:'🇺🇸',Russian:'🇷🇺',German:'🇩🇪',French:'🇫🇷',Italian:'🇮🇹',
+    Japanese:'🇯🇵',Canadian:'🇨🇦',Danish:'🇩🇰',British:'🇬🇧',Chinese:'🇨🇳',
+    Emirati:'🇦🇪',Saudi:'🇸🇦',Belarusian:'🇧🇾',Kazakhstani:'🇰🇿',
   };
 
-  // ── 1. Wikidata SPARQL — most reliable for current crew ──
+  // ── 1. Wikidata — query ISS (Q29053) directly for current crew ──
+  // More reliable than querying expeditions
+  const QUERIES = [
+    // Query A: ISS current occupants via P1302
+    `SELECT DISTINCT ?pLabel ?natLabel WHERE {
+      wd:Q29053 p:P1302 ?s .
+      ?s ps:P1302 ?p .
+      OPTIONAL { ?s pq:P582 ?end }
+      FILTER(!BOUND(?end) || ?end >= NOW())
+      OPTIONAL { ?s pq:P580 ?start . FILTER(?start <= NOW()) }
+      OPTIONAL { ?p wdt:P27 ?nat }
+      SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+    } LIMIT 12`,
+
+    // Query B: Active ISS expeditions crew (fallback)
+    `SELECT DISTINCT ?astLabel ?natLabel WHERE {
+      ?exp wdt:P31 wd:Q1142527 ; wdt:P1302 ?ast .
+      ?exp p:P580 [psv:P580 [wikibase:timeValue ?s]] .
+      OPTIONAL { ?exp p:P582 [psv:P582 [wikibase:timeValue ?e]] }
+      FILTER(?s <= NOW() && (!BOUND(?e) || ?e >= NOW()))
+      OPTIONAL { ?ast wdt:P27 ?nat }
+      SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+    } LIMIT 12`,
+  ];
+
+  for (const sparql of QUERIES) {
+    try {
+      const url = 'https://query.wikidata.org/sparql?format=json&query=' + encodeURIComponent(sparql);
+      const res = await Promise.race([
+        fetch(url, { headers: { Accept: 'application/sparql-results+json' } }),
+        tout(10000)
+      ]);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const json = await res.json();
+
+      // Get name from first available label key
+      const rows = (json.results?.bindings || []).filter(r => {
+        const name = r.pLabel?.value || r.astLabel?.value || '';
+        // Filter out Q-IDs (unresolved) and obvious non-names
+        return name && !name.match(/^Q\d+$/) && name.length > 3;
+      });
+
+      if (rows.length >= 3 && rows.length <= 12) {
+        console.log('[ISS crew] Wikidata OK:', rows.map(r => r.pLabel?.value || r.astLabel?.value));
+        return rows.map(r => ({
+          name:   r.pLabel?.value || r.astLabel?.value || '—',
+          agency: r.natLabel?.value || '—',
+          flag:   FLAGS[r.natLabel?.value] || '🧑‍🚀',
+          daysInSpace: null,
+          source: 'Wikidata',
+        }));
+      }
+    } catch(e) { console.warn('[ISS crew] Wikidata query failed:', e.message); }
+  }
+
+  // ── 2. SpaceDevs — expedition endpoint (more reliable than astronaut) ──
   try {
-    const sparql = `
-SELECT DISTINCT ?astLabel ?nationalityLabel ?agencyLabel WHERE {
-  ?exp wdt:P31 wd:Q1142527 .
-  ?exp wdt:P1302 ?ast .
-  ?exp p:P580 [ psv:P580 [ wikibase:timeValue ?start ] ] .
-  OPTIONAL { ?exp p:P582 [ psv:P582 [ wikibase:timeValue ?end ] ] }
-  FILTER(?start <= NOW() && (!BOUND(?end) || ?end >= NOW()))
-  OPTIONAL { ?ast wdt:P27 ?nationality }
-  OPTIONAL { ?ast wdt:P108 ?agency }
-  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
-} LIMIT 12`;
-
-    const url = 'https://query.wikidata.org/sparql?format=json&query=' + encodeURIComponent(sparql);
-    const res = await Promise.race([
-      fetch(url, { headers: { Accept: 'application/sparql-results+json' } }),
-      tout(10000)
-    ]);
-    if (!res.ok) throw new Error('Wikidata ' + res.status);
-    const json = await res.json();
-    const rows = (json.results?.bindings || [])
-      .filter(r => r.astLabel?.value && !r.astLabel.value.startsWith('Q')); // skip Q-IDs
-
-    if (rows.length >= 3) { // ISS always has at least 3 crew
-      console.log('[ISS crew] Wikidata:', rows.map(r=>r.astLabel.value));
-      return rows.map(r => ({
-        name:   r.astLabel?.value || '—',
-        agency: r.agencyLabel?.value || r.nationalityLabel?.value || '—',
-        flag:   FLAGS[r.nationalityLabel?.value] || '🧑‍🚀',
-        daysInSpace: null,
-        source: 'Wikidata',
-      }));
-    }
-  } catch(e) { console.warn('[ISS crew] Wikidata:', e.message); }
-
-  // ── 2. Space Devs PRODUCTION server (ll not lldev) ──
-  // lldev = dev server with stale/test data
-  // ll = production, requires key for high volume but works for low traffic
-  try {
-    const res = await Promise.race([
-      fetch('https://ll.thespacedevs.com/2.2.0/astronaut/?is_in_space=true&limit=10&format=json'),
+    // Get current active expedition first
+    const expRes = await Promise.race([
+      fetch('https://ll.thespacedevs.com/2.2.0/expedition/?limit=1&ordering=-start&end__isnull=true&format=json'),
       tout(8000)
     ]);
-    if (!res.ok) throw new Error('SpaceDevs prod ' + res.status);
-    const data = await res.json();
-    const crew = (data.results || []).slice(0, 10).map(a => ({
-      name:        a.name,
-      agency:      a.agency?.abbrev || a.nationality || '—',
-      flag:        FLAGS[a.nationality] || '🧑‍🚀',
-      daysInSpace: parseDays(a.time_in_space),
-      source:      'SpaceDevs',
-    }));
-    if (crew.length >= 3) {
-      console.log('[ISS crew] SpaceDevs prod:', crew.map(c=>c.name));
-      return crew;
+    if (expRes.ok) {
+      const expData = await expRes.json();
+      const exp = expData.results?.[0];
+      if (exp) {
+        // Fetch crew of this expedition
+        const crewRes = await Promise.race([
+          fetch(`https://ll.thespacedevs.com/2.2.0/expedition/${exp.id}/?format=json`),
+          tout(8000)
+        ]);
+        if (crewRes.ok) {
+          const crewData = await crewRes.json();
+          const crew = (crewData.crew || []).slice(0, 10).map(c => ({
+            name:   c.astronaut?.name || '—',
+            agency: c.astronaut?.agency?.abbrev || '—',
+            flag:   FLAGS[c.astronaut?.nationality] || '🧑‍🚀',
+            daysInSpace: null,
+            source: 'SpaceDevs',
+          }));
+          if (crew.length >= 3) {
+            console.log('[ISS crew] SpaceDevs expedition:', crew.map(c=>c.name));
+            return crew;
+          }
+        }
+      }
     }
-  } catch(e) { console.warn('[ISS crew] SpaceDevs prod:', e.message); }
+  } catch(e) { console.warn('[ISS crew] SpaceDevs expedition:', e.message); }
 
-  // ── 3. Space Devs DEV via proxy ──
-  try {
-    const target = 'https://lldev.thespacedevs.com/2.2.0/astronaut/?is_in_space=true&limit=10&format=json';
-    const res = await Promise.race([
-      fetch('https://corsproxy.io/?url=' + encodeURIComponent(target)),
-      tout(8000)
-    ]);
-    if (!res.ok) throw new Error('SpaceDevs dev ' + res.status);
-    const data = await res.json();
-    // IMPORTANT: filter to max 10 — dev server returns wrong historical data sometimes
-    const crew = (data.results || []).slice(0, 10).map(a => ({
-      name:        a.name,
-      agency:      a.agency?.abbrev || a.nationality || '—',
-      flag:        FLAGS[a.nationality] || '🧑‍🚀',
-      daysInSpace: parseDays(a.time_in_space),
-      source:      'SpaceDevs(dev)',
-      maybeStale:  true,
-    }));
-    if (crew.length >= 3 && crew.length <= 10) return crew;
-  } catch(e) { console.warn('[ISS crew] SpaceDevs dev:', e.message); }
-
-  return [];
+  return []; // all failed
 }
 
 
