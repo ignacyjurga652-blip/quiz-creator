@@ -1601,8 +1601,15 @@ html.is-desktop .tab-nav-inner { gap: 4px; }
   border-top-color: rgba(201,168,76,0.3);
 }
 .info-tooltip strong { color: var(--text); }
+@keyframes tooltipIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(6px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
 .info-btn:hover .info-tooltip,
-.info-btn.active   .info-tooltip { display: block; }
+.info-btn.active .info-tooltip {
+  display: block;
+  animation: tooltipIn .2s cubic-bezier(.16,1,.3,1) forwards;
+}
 
 </style>
 </head>
@@ -1880,7 +1887,7 @@ html.is-desktop .tab-nav-inner { gap: 4px; }
         <div class="info-tooltip">
           <strong>Jak działają odliczenia?</strong><br>
           Po zakończeniu odliczania karta pozostaje widoczna przez <strong>48 godzin</strong> z oznaczeniem czasu do zniknięcia.<br><br>
-          Po tym czasie automatycznie znika z listy.
+          Po upływie 48h znika automatycznie, a na jej miejscu <strong>pojawiają się kolejne odliczenia</strong> z listy nadchodzących wydarzeń.
         </div>
       </span>
     </h2>
