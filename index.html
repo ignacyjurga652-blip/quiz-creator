@@ -1396,6 +1396,155 @@ footer{text-align:center;padding:40px 24px 60px;font-family:var(--mono);font-siz
 
 @media(max-width:680px){ .iss-hero{grid-template-columns:repeat(2,1fr);} }
 
+
+/* ═══════════════════════════════════════════════════
+   DISCLAIMER MODAL
+═══════════════════════════════════════════════════ */
+.disc-overlay {
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(3,6,18,0.88);
+  backdrop-filter: blur(12px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+  animation: disc-fade-in .35s ease;
+}
+@keyframes disc-fade-in { from{opacity:0;} to{opacity:1;} }
+.disc-box {
+  background: #0a0d1e;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px;
+  max-width: 560px; width: 100%;
+  padding: 36px 36px 28px;
+  position: relative;
+  box-shadow: 0 40px 80px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.04) inset;
+  animation: disc-slide-up .4s cubic-bezier(.16,1,.3,1);
+}
+@keyframes disc-slide-up { from{transform:translateY(30px);opacity:0;} to{transform:translateY(0);opacity:1;} }
+.disc-box::before {
+  content:''; position:absolute; top:0;left:0;right:0; height:2px;
+  background: linear-gradient(90deg,#c94c4c,#c9774c,#c9a84c);
+  border-radius:20px 20px 0 0;
+}
+.disc-icon { font-size:2.4rem; text-align:center; margin-bottom:16px; }
+.disc-title {
+  font-family: var(--serif); font-size:1.5rem; font-weight:400;
+  text-align:center; margin-bottom:20px; color: var(--text);
+}
+.disc-body {
+  font-size:13px; color:var(--text-dim); line-height:1.85;
+  margin-bottom:24px;
+}
+.disc-body .red { color:#ff6b6b; font-weight:500; }
+.disc-body .em  { color:var(--text); font-style:italic; }
+.disc-divider {
+  border:none; border-top:1px solid rgba(255,255,255,.07);
+  margin:18px 0;
+}
+.disc-footer {
+  display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap;
+}
+.disc-btn-close {
+  background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12);
+  color:var(--text-dim); border-radius:10px; padding:10px 22px;
+  font-family:var(--mono); font-size:10px; letter-spacing:.15em;
+  cursor:pointer; transition:all .2s; text-transform:uppercase;
+}
+.disc-btn-close:hover { background:rgba(255,255,255,.1); color:var(--text); }
+.disc-btn-never {
+  background:rgba(201,76,76,.12); border:1px solid rgba(201,76,76,.3);
+  color:#ff8080; border-radius:10px; padding:10px 22px;
+  font-family:var(--mono); font-size:10px; letter-spacing:.15em;
+  cursor:pointer; transition:all .2s; text-transform:uppercase;
+}
+.disc-btn-never:hover { background:rgba(201,76,76,.22); }
+
+@media(max-width:480px) {
+  .disc-box { padding:28px 22px 22px; }
+  .disc-footer { flex-direction:column; }
+  .disc-btn-close, .disc-btn-never { text-align:center; }
+}
+
+
+/* ═══════════════════════════════════════════════════
+   DEVICE-SPECIFIC STYLES
+═══════════════════════════════════════════════════ */
+
+/* ── MOBILE (< 900px touch) ── */
+html.is-mobile {
+  font-size: 15px;
+}
+html.is-mobile .tab-btn {
+  padding: 12px 10px;
+  font-size: 9px;
+  gap: 4px;
+}
+html.is-mobile .tab-btn .tab-icon { font-size: 14px; }
+html.is-mobile .tab-nav-inner { gap: 2px; overflow-x:auto; flex-wrap:nowrap; scrollbar-width:none; }
+html.is-mobile .tab-nav-inner::-webkit-scrollbar { display:none; }
+
+html.is-mobile .featured-box { padding: 22px 18px 20px; }
+html.is-mobile .fc-digit-val { font-size: 1.6rem; }
+html.is-mobile .fc-digit-unit { min-width: 48px; }
+html.is-mobile .fc-sep { font-size: 1.4rem; }
+
+html.is-mobile .year-hero { grid-template-columns: 1fr; padding: 24px 18px; }
+html.is-mobile .arc-wrap { display: flex; justify-content: center; }
+
+html.is-mobile .container { padding: 0 14px; }
+html.is-mobile main.container { padding-top: 20px; }
+
+html.is-mobile .section-title { font-size: 1.4rem; }
+
+html.is-mobile .wc-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+html.is-mobile .earth-hero-grid { grid-template-columns: repeat(2, 1fr); }
+html.is-mobile .earth-records-grid { grid-template-columns: repeat(2, 1fr); }
+html.is-mobile .threats-grid { grid-template-columns: 1fr; }
+html.is-mobile .oceans-grid { grid-template-columns: repeat(2, 1fr); }
+
+html.is-mobile .apod-body { padding: 16px 16px 20px; }
+html.is-mobile .apod-title-over { font-size: 1.1rem; }
+html.is-mobile .apod-footer { flex-wrap: wrap; gap: 8px; }
+
+html.is-mobile .moon-big-box .moon-layout { grid-template-columns: 1fr; }
+html.is-mobile .moon-canvas-col { border-right: none; border-bottom: 1px solid var(--card-border); }
+html.is-mobile #moonBigCanvas { width: 140px !important; height: 140px !important; }
+
+html.is-mobile .ss-hero { grid-template-columns: repeat(2, 1fr); }
+html.is-mobile #ssCanvas { height: 220px !important; }
+html.is-mobile .ss-planets-grid { grid-template-columns: 1fr; }
+
+html.is-mobile .iss-hero { grid-template-columns: repeat(2, 1fr); }
+html.is-mobile #issCanvas { height: 220px !important; }
+html.is-mobile .iss-crew-grid { grid-template-columns: repeat(2, 1fr); }
+html.is-mobile .iss-facts-grid { grid-template-columns: 1fr; }
+html.is-mobile .iss-pass-grid { grid-template-columns: repeat(2, 1fr); }
+
+html.is-mobile .nature-layout { grid-template-columns: 1fr; }
+html.is-mobile .volcano-grid { grid-template-columns: 1fr; }
+
+html.is-mobile .quake-list .quake-item { padding: 8px 14px; }
+html.is-mobile .quake-place { font-size: 11px; }
+
+html.is-mobile .online-widget { bottom: 16px; left: 14px; padding: 7px 11px; }
+
+html.is-mobile .aqi-layout { grid-template-columns: 1fr; }
+html.is-mobile .aqi-gauge-col { border-right: none; border-bottom: 1px solid var(--card-border); }
+
+html.is-mobile .ss-map-controls { flex-wrap: wrap; gap: 6px; }
+html.is-mobile .ss-ctrl-btn { padding: 5px 10px; font-size: 9px; }
+
+html.is-mobile .disc-box { padding: 24px 18px 20px; }
+html.is-mobile .disc-footer { flex-direction: column; }
+html.is-mobile .disc-title { font-size: 1.2rem; }
+
+/* ── TABLET (900px+ touch) ── */
+html.is-tablet .tab-btn { padding: 14px 16px; font-size: 10px; }
+html.is-tablet .wc-grid { grid-template-columns: repeat(3, 1fr); }
+html.is-tablet .ss-planets-grid { grid-template-columns: repeat(2, 1fr); }
+
+/* ── DESKTOP — no special overrides needed (default layout is desktop) ── */
+html.is-desktop .tab-nav-inner { gap: 4px; }
+
 </style>
 </head>
 <body>
@@ -6035,324 +6184,44 @@ const FEATURED_CONFIG = {
   setInterval(tick, 1000);
 })();
 // ═══════════════════════════════════════════════════════════
-//  ONLINE USERS COUNTER — Firebase Realtime Database
+//  ONLINE USERS COUNTER — localStorage (same browser tabs only)
 // ═══════════════════════════════════════════════════════════
-//
-//  ┌─────────────────────────────────────────────────────┐
-//  │  KONFIGURACJA — wpisz URL swojej bazy Firebase      │
-//  │                                                     │
-//  │  Jak ustawić (darmowe, 5 minut):                   │
-//  │  1. Wejdź na console.firebase.google.com           │
-//  │  2. Utwórz projekt → Realtime Database → Create    │
-//  │  3. Reguły → wklej: { "rules": {".read":true,     │
-//  │     ".write":true } } → Publish                    │
-//  │  4. Skopiuj URL bazy i wklej poniżej               │
-//  └─────────────────────────────────────────────────────┘
-//
 (function() {
-  // ↓↓↓ WKLEJ TUTAJ URL SWOJEJ BAZY FIREBASE ↓↓↓
-  const FIREBASE_URL = 'https://chronos-demo-default-rtdb.europe-west1.firebasedatabase.app';
-  // ↑↑↑ Przykład: 'https://TWOJ-PROJEKT-default-rtdb.firebaseio.com' ↑↑↑
+  const KEY   = 'chronos_tabs_v3';
+  const MY_ID = 't_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+  const TTL   = 8000;
+  const BEAT  = 3000;
 
-  const BEAT    = 3000;   // heartbeat co 3 sekundy
-  const TTL     = 10000;  // tab martwy po 10s braku sygnału
-  const TAB_ID  = 'tab_' + Math.random().toString(36).slice(2) + '_' + Date.now();
-  const PATH    = FIREBASE_URL + '/presence/' + TAB_ID;
-  const ALL     = FIREBASE_URL + '/presence.json';
-  let   beating = true;
-  let   lastCount = null;
+  function read()  { try { return JSON.parse(localStorage.getItem(KEY)||'{}'); } catch(e) { return {}; } }
+  function write(d){ try { localStorage.setItem(KEY, JSON.stringify(d)); } catch(e) {} }
 
-  function setEl(count) {
-    const el = document.getElementById('onlineCount');
-    if (!el) return;
-    if (count !== lastCount) {
-      lastCount = count;
-      el.textContent = count;
-      el.style.transition = 'color .2s';
-      el.style.color = '#4cc97a';
-      setTimeout(() => { el.style.color = ''; }, 400);
-    }
-  }
-
-  // Write our heartbeat to Firebase
-  async function writePresence() {
-    if (!beating) return;
-    try {
-      await fetch(PATH + '.json', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ts: Date.now(), alive: true })
-      });
-    } catch(e) { /* offline — ignore */ }
-  }
-
-  // Remove ourselves on close
-  async function removePresence() {
-    try {
-      await fetch(PATH + '.json', { method: 'DELETE' });
-    } catch(e) {}
-  }
-
-  // Read all presence entries and count alive tabs
-  async function countOnline() {
-    try {
-      const res  = await fetch(ALL + '?shallow=true');
-      // shallow=true returns just keys, then we fetch full to check timestamps
-      const full = await fetch(ALL);
-      if (!full.ok) { setEl('?'); return; }
-      const data = await full.json();
-      if (!data) { setEl(1); return; }
-      const now   = Date.now();
-      let   alive = 0;
-      for (const id in data) {
-        const entry = data[id];
-        if (entry && (now - entry.ts) <= TTL) alive++;
-      }
-      setEl(Math.max(1, alive));
-    } catch(e) {
-      // Firebase not configured or offline — show 1
-      setEl(1);
-    }
-  }
-
-  // Cleanup stale entries from DB (run occasionally)
-  async function pruneStale() {
-    try {
-      const res  = await fetch(ALL);
-      if (!res.ok) return;
-      const data = await res.json();
-      if (!data) return;
-      const now  = Date.now();
-      for (const id in data) {
-        if (data[id] && (now - data[id].ts) > TTL * 3) {
-          fetch(FIREBASE_URL + '/presence/' + id + '.json', { method: 'DELETE' });
-        }
-      }
-    } catch(e) {}
-  }
-
-  // On page close: remove self and let Firebase clean up
-  window.addEventListener('beforeunload', () => {
-    beating = false;
-    // Use sendBeacon for reliable cleanup on close
-    const url = PATH + '.json?x=' + Date.now();
-    try { navigator.sendBeacon(url, JSON.stringify(null)); } catch(e) { removePresence(); }
-  });
-
-  // On page hide (mobile background)
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') {
-      beating = false;
-      removePresence();
-    } else {
-      beating = true;
-      writePresence();
-      countOnline();
-    }
-  });
-
-  // Start
-  writePresence();
-  countOnline();
-
-  // Repeat: write heartbeat + count
-  setInterval(async () => {
-    await writePresence();
-    await countOnline();
-  }, BEAT);
-
-  // Prune stale entries every 30s
-  setInterval(pruneStale, 30000);
-})();
-
-
-// ═══════════════════════════════════════════════════════════
-//  MOON PHASE — standalone section
-// ═══════════════════════════════════════════════════════════
-(function initMoonSection() {
-  // ── Jean Meeus "Astronomical Algorithms" Ch.47 ────────────
-  // Accuracy: phase ±0.5%, distance ±500km, illumination ±1%
-  const PHASES = ['🌑','🌒','🌓','🌔','🌕','🌖','🌗','🌘'];
-  const NAMES  = ['Nów','Przybywający sierp','Pierwsza kwadra','Przybywający gibbous',
-                  'Pełnia','Ubywający gibbous','Ostatnia kwadra','Ubywający sierp'];
-  const FACTS  = [
-    'Nów — Księżyc jest między Ziemią a Słońcem. Niewidoczny gołym okiem, ale idealny do obserwacji gwiazd.',
-    'Przybywający sierp — widoczny po zachodzie słońca nisko na zachodzie. Co noc wyżej i szerzej.',
-    'Pierwsza kwadra — prawa połowa oświetlona. Wzchodzi w południe, zachodzi o północy. Dobry czas na teleskop.',
-    'Przybywający gibbous (garb) — ponad połowa tarcza oświetlona. Intensywne obserwacje kraterów na terminatorze.',
-    'Pełnia — Księżyc wschodzi o zachodzie słońca i zachodzi o wschodzie. Noce jasne jak zmierzch.',
-    'Ubywający gibbous — widoczny od wieczoru do południa następnego dnia. Wschodnia część tarczy w cieniu.',
-    'Ostatnia kwadra — lewa połowa oświetlona. Wschodzi o północy, widoczny rano na południowym zachodzie.',
-    'Ubywający sierp — widoczny tylko przed wschodem słońca. Cienki sierp tuż nad horyzontem wschodnim.'
-  ];
-
-  function deg2rad(d) { return d * Math.PI / 180; }
-  function rad2deg(r) { return r * 180 / Math.PI; }
-
-  // Full Meeus calculation — returns { phase0to1, illum, distKm, elong }
-  function getMeeus(date) {
-    const JD = date.getTime() / 86400000 + 2440587.5;
-    const T  = (JD - 2451545.0) / 36525.0; // Julian centuries from J2000
-
-    // Sun mean anomaly
-    const Ms = (357.5291092 + 35999.0502909*T - 0.0001536*T*T) % 360;
-    // Moon mean anomaly
-    const Mm = (134.9633964 + 477198.8675055*T + 0.0087414*T*T) % 360;
-    // Moon mean elongation
-    const D  = (297.8501921 + 445267.1114034*T - 0.0018819*T*T) % 360;
-    // Moon argument of latitude
-    const F  = (93.2720950  + 483202.0175233*T - 0.0036539*T*T) % 360;
-
-    const MsR = deg2rad(Ms), MmR = deg2rad(Mm);
-    const DR  = deg2rad(D),  FR  = deg2rad(F);
-
-    // Elongation (phase angle) — sum of main periodic terms
-    let elong = D
-      - 6.289 * Math.sin(MmR)
-      + 2.100 * Math.sin(MsR)
-      - 1.274 * Math.sin(2*DR - MmR)
-      - 0.658 * Math.sin(2*DR)
-      - 0.214 * Math.sin(2*MmR)
-      - 0.110 * Math.sin(DR);
-    elong = ((elong % 360) + 360) % 360;
-
-    // Illumination fraction (0=new, 1=full)
-    const illum = (1 - Math.cos(deg2rad(elong))) / 2;
-
-    // Phase 0–1 (0=new, 0.5=full)
-    const phase0to1 = elong / 360;
-
-    // Distance km — Meeus table
-    let dist = 385000.56
-      + 20905.355 * Math.cos(MmR)
-      + 3699.111  * Math.cos(2*DR - MmR)
-      + 2955.968  * Math.cos(2*DR)
-      + 569.925   * Math.cos(2*MmR)
-      - 246.059   * Math.cos(2*DR + MmR)
-      - 152.138   * Math.cos(MsR + MmR);
-
-    return { phase0to1, illum, distKm: Math.round(dist), elong };
-  }
-
-  function getPhase(date) {
-    return getMeeus(new Date(date)).phase0to1;
-  }
-
-  function drawMoonBig(canvas, phase) {
-    const ctx = canvas.getContext('2d');
-    const W = canvas.width, cx = W/2, cy = W/2, r = W/2 - 4;
-    ctx.clearRect(0,0,W,W);
-
-    // Outer glow for full moon
-    if (phase > 0.35 && phase < 0.65) {
-      const glow = ctx.createRadialGradient(cx,cy,r,cx,cy,r+20);
-      const a = Math.max(0, 1 - Math.abs(phase-0.5)/0.15);
-      glow.addColorStop(0, `rgba(255,240,180,${a*0.3})`);
-      glow.addColorStop(1, 'rgba(255,240,180,0)');
-      ctx.fillStyle = glow;
-      ctx.beginPath(); ctx.arc(cx,cy,r+20,0,Math.PI*2); ctx.fill();
-    }
-
-    ctx.save();
-    ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.clip();
-
-    // Moon surface
-    const surf = ctx.createRadialGradient(cx-r*.2,cy-r*.2,0,cx,cy,r);
-    surf.addColorStop(0,'#f5e890'); surf.addColorStop(.6,'#d4c060'); surf.addColorStop(1,'#a08840');
-    ctx.fillStyle = surf; ctx.fillRect(0,0,W,W);
-
-    // Craters
-    [[-.25,-.3,r*.07],[.2,.1,r*.05],[-.05,.35,r*.06],[.35,-.1,r*.04]].forEach(([dx,dy,cr])=>{
-      ctx.fillStyle='rgba(0,0,0,0.1)'; ctx.beginPath(); ctx.arc(cx+dx*r,cy+dy*r,cr,0,Math.PI*2); ctx.fill();
-    });
-
-    // Shadow
-    ctx.fillStyle='#06080f';
-    if (phase < 0.5) {
-      ctx.beginPath(); ctx.moveTo(cx,cy-r); ctx.arc(cx,cy,r,-Math.PI/2,Math.PI/2,true); ctx.closePath(); ctx.fill();
-      const ex = r * Math.cos(phase * Math.PI * 2);
-      if (ex > 0) { ctx.beginPath(); ctx.ellipse(cx,cy,ex,r,0,0,Math.PI*2); ctx.fill(); }
-      else if (ex < 0) {
-        const sg = ctx.createRadialGradient(cx-r*.2,cy-r*.2,0,cx,cy,r);
-        sg.addColorStop(0,'#f5e890'); sg.addColorStop(.6,'#d4c060'); sg.addColorStop(1,'#a08840');
-        ctx.fillStyle=sg; ctx.beginPath(); ctx.ellipse(cx,cy,-ex,r,0,0,Math.PI*2); ctx.fill();
-      }
-    } else {
-      ctx.beginPath(); ctx.moveTo(cx,cy-r); ctx.arc(cx,cy,r,-Math.PI/2,Math.PI/2); ctx.closePath(); ctx.fill();
-      const ex2 = -r * Math.cos(phase * Math.PI * 2);
-      if (ex2 > 0) {
-        const sg = ctx.createRadialGradient(cx-r*.2,cy-r*.2,0,cx,cy,r);
-        sg.addColorStop(0,'#f5e890'); sg.addColorStop(.6,'#d4c060'); sg.addColorStop(1,'#a08840');
-        ctx.fillStyle=sg; ctx.beginPath(); ctx.ellipse(cx,cy,ex2,r,0,0,Math.PI*2); ctx.fill();
-      } else if (ex2 < 0) { ctx.beginPath(); ctx.ellipse(cx,cy,-ex2,r,0,0,Math.PI*2); ctx.fill(); }
-    }
-    ctx.restore();
-  }
-
-  function formatDate(d) {
-    return d.toLocaleDateString('pl-PL',{day:'numeric',month:'long'});
-  }
-  function daysFrom(ms) {
-    const d = Math.round(Math.abs(ms)/86400000);
-    if (d===0) return 'dziś!';
-    if (d===1) return 'jutro';
-    return 'za '+d+' dni';
-  }
-
-  const CYCLE = 29.53059 * 86400000;
-
-  function nextPhaseDate(phase0to1, targetPhase) {
-    // Find next date when moon reaches targetPhase (0=new, 0.25=first quarter, 0.5=full, 0.75=last)
-    let p = phase0to1;
-    let diff = targetPhase - p;
-    if (diff < 0) diff += 1;
-    return new Date(Date.now() + diff * CYCLE);
-  }
-
-  function update() {
+  function beat() {
     const now  = Date.now();
-    const m    = getMeeus(new Date(now));
-    const { phase0to1, illum, distKm } = m;
-
-    const idx      = Math.round(phase0to1 * 8) % 8;
-    const cycleDay = (phase0to1 * 29.53).toFixed(2);
-    const pct      = (phase0to1 * 100).toFixed(1);
-    const illumPct = Math.round(illum * 100);
-
-    // Accurate next new / full moon dates
-    const nextNew  = nextPhaseDate(phase0to1, 0);
-    const nextFull = nextPhaseDate(phase0to1, 0.5);
-    const toNew    = nextNew.getTime()  - now;
-    const toFull   = nextFull.getTime() - now;
-
-    const distNote = distKm < 362000 ? '🔴 Perygeum — super-blisko!'
-                   : distKm < 375000 ? 'Blisko Ziemi'
-                   : distKm > 400000 ? '🔵 Apogeum — daleko'
-                   : 'Średnia odległość';
-
-    const canvas = document.getElementById('moonBigCanvas');
-    if (canvas) drawMoonBig(canvas, phase0to1);
-
-    function sv(id,v){ const e=document.getElementById(id); if(e) e.textContent=v; }
-    sv('moonBigEmoji',   PHASES[idx]);
-    sv('moonBigName',    NAMES[idx]);
-    sv('moonBigPct',     'Oświetlenie: ' + illumPct + '% (Meeus)');
-    sv('moonNextNew',    formatDate(nextNew));
-    sv('moonNextNewIn',  daysFrom(toNew));
-    sv('moonNextFull',   formatDate(nextFull));
-    sv('moonNextFullIn', daysFrom(toFull));
-    sv('moonCycleDay',   cycleDay + ' / 29.53 dni');
-    sv('moonDist',       distKm.toLocaleString('pl-PL') + ' km');
-    sv('moonDistNote',   distNote);
-    sv('moonCyclePct',   pct + '%');
-    sv('moonFact',       FACTS[idx]);
-
-    const bar = document.getElementById('moonCycleBar');
-    if (bar) setTimeout(()=>{ bar.style.width = pct + '%'; }, 200);
+    const data = read();
+    data[MY_ID] = now;
+    for (const id in data) { if (now - data[id] > TTL * 2) delete data[id]; }
+    write(data);
+    let alive = 0;
+    for (const id in data) { if (now - data[id] <= TTL) alive++; }
+    const el = document.getElementById('onlineCount');
+    if (el) el.textContent = alive;
   }
 
-  update();
-  setInterval(update, 300000); // refresh every 5 min
+  window.addEventListener('beforeunload', () => {
+    const d = read(); delete d[MY_ID]; write(d);
+  });
+
+  window.addEventListener('storage', e => {
+    if (e.key !== KEY) return;
+    const now = Date.now(), data = read();
+    let alive = 0;
+    for (const id in data) { if (now - data[id] <= TTL) alive++; }
+    const el = document.getElementById('onlineCount');
+    if (el) el.textContent = alive;
+  });
+
+  beat();
+  setInterval(beat, BEAT);
 })();
 
 // ═══════════════════════════════════════════════════════════
@@ -7990,6 +7859,61 @@ async function initISSTab() {
   // Resize handler
   window.addEventListener('resize', () => { if(issInited) drawISSMap(); });
 }
+
+
+// ═══════════════════════════════════════════════════════════
+//  DEVICE DETECTION — applies class to <html> element
+// ═══════════════════════════════════════════════════════════
+(function detectDevice() {
+  const ua     = navigator.userAgent.toLowerCase();
+  const w      = window.innerWidth;
+  const touch  = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+  const mobile = touch && w < 900;
+  const tablet = touch && w >= 900;
+
+  const root = document.documentElement;
+  root.classList.add(mobile ? 'is-mobile' : tablet ? 'is-tablet' : 'is-desktop');
+
+  // Expose for other scripts
+  window.CHRONOS_DEVICE = mobile ? 'mobile' : tablet ? 'tablet' : 'desktop';
+  window.CHRONOS_MOBILE = mobile;
+
+  // Re-check on resize (e.g. orientation change)
+  window.addEventListener('resize', () => {
+    const w2 = window.innerWidth;
+    const m2 = touch && w2 < 900;
+    root.classList.remove('is-mobile','is-tablet','is-desktop');
+    root.classList.add(m2 ? 'is-mobile' : (touch && w2 >= 900) ? 'is-tablet' : 'is-desktop');
+    window.CHRONOS_DEVICE = m2 ? 'mobile' : (touch && w2 >= 900) ? 'tablet' : 'desktop';
+    window.CHRONOS_MOBILE = m2;
+  });
+})();
+
+// ═══════════════════════════════════════════════════════════
+//  DISCLAIMER MODAL
+// ═══════════════════════════════════════════════════════════
+const DISC_KEY = 'chronos_disclaimer_v1';
+
+function discClose() {
+  const el = document.getElementById('discOverlay');
+  if (!el) return;
+  el.style.animation = 'disc-fade-in .25s ease reverse';
+  setTimeout(() => el.remove(), 240);
+}
+
+function discNever() {
+  try { localStorage.setItem(DISC_KEY, '1'); } catch(e) {}
+  discClose();
+}
+
+(function initDisc() {
+  try {
+    if (localStorage.getItem(DISC_KEY) === '1') {
+      const el = document.getElementById('discOverlay');
+      if (el) el.remove();
+    }
+  } catch(e) {}
+})();
 
 // ═══════════════════════════════════════════════════════════
 //  INIT
