@@ -3971,10 +3971,11 @@ function drawMoon(canvas, phaseDays) {
       // Terminator: ellipse from bottom to top on right side if tx<0 (crescent),
       // ellipse on left side if tx>0 (gibbous)
       if (tx >= 0) {
-        // waxing gibbous: shadow = left half minus ellipse
-        ctx.ellipse(cx, cy, tx, r, 0, Math.PI / 2, -Math.PI / 2, false);
+        // waxing crescent (p=0..0.25): terminator on right, large shadow
+        ctx.ellipse(cx, cy, tx, r, 0, Math.PI / 2, -Math.PI / 2, false); // CW = right side
       } else {
-        ctx.ellipse(cx, cy, -tx, r, 0, Math.PI / 2, -Math.PI / 2, true);
+        // waxing gibbous (p=0.25..0.5): thin shadow crescent on left — FIX: false not true
+        ctx.ellipse(cx, cy, -tx, r, 0, Math.PI / 2, -Math.PI / 2, false); // CW = LEFT side ← fix
       }
       ctx.closePath();
       ctx.fill();
