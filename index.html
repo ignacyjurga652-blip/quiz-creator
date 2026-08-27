@@ -1658,6 +1658,17 @@ html.is-desktop .tab-nav-inner { gap: 4px; }
 }
 .quake-popup .leaflet-popup-tip { background: rgba(6,8,20,0.95); }
 
+
+/* Dark map filter — inverts OSM tiles to dark style */
+.dark-map-tiles {
+  filter: invert(100%) hue-rotate(180deg) brightness(0.75) contrast(1.1) saturate(0.6) !important;
+}
+/* Counter-invert markers so they stay correct color */
+.leaflet-marker-pane,
+.leaflet-popup-pane {
+  filter: invert(100%) hue-rotate(180deg);
+}
+
 </style>
   <!-- Leaflet.js for ISS + Earthquake maps -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -6605,7 +6616,7 @@ function initQuakeLeafletMap() {
     minZoom: 1, maxZoom: 6,
     worldCopyJump: true,
   });
-  L.tileLayer(CARTO_DARK, { subdomains:'abcd', maxZoom:19 }).addTo(_quakeMap);
+  L.tileLayer(TILE_URL, { attribution:TILE_ATTR, maxZoom:19, className:'dark-map-tiles' }).addTo(_quakeMap);
 }
 
 function drawQuakeMap(data) {
@@ -7548,8 +7559,11 @@ let _issLabel    = null;
 let _issTrack    = null;
 let _userMarker  = null;
 
-const CARTO_DARK = 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png';
-const CARTO_ATTR = '©OpenStreetMap ©CARTO';
+// OpenStreetMap z ciemnym filtrem CSS — darmowe, bez klucza API
+const TILE_URL  = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+const TILE_ATTR = '©<a href="https://openstreetmap.org">OpenStreetMap</a>';
+const CARTO_DARK = TILE_URL;  // compat alias
+const CARTO_ATTR = TILE_ATTR;
 
 function initISSLeafletMap() {
   if (_issMap) return;
@@ -7563,7 +7577,7 @@ function initISSLeafletMap() {
     worldCopyJump: true,
   });
 
-  L.tileLayer(CARTO_DARK, { subdomains:'abcd', maxZoom:19 }).addTo(_issMap);
+  L.tileLayer(TILE_URL, { attribution:TILE_ATTR, maxZoom:19, className:'dark-map-tiles' }).addTo(_issMap);
 
   // ISS marker (custom div icon)
   const issIcon = L.divIcon({
