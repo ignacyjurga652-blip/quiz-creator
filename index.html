@@ -7673,6 +7673,83 @@ function issUpdatePass() {
     : `🔭 Przelot <strong>${Math.round(minDist).toLocaleString('pl-PL')} km</strong> od Twojej lokalizacji. Następny bliższy za ok. ${Math.round(ISS_PERIOD)} min.`;
 }
 
+// ── ISS Position — TLE from API + orbital fallback ────────────
+let _issTLE  = null;
+let _tleTime = 0;
+
+async function refreshTLE() {
+  if (_issTLE && Date.now() - _tleTime < 3600000) return _issTLE;
+  try {
+    const r = await fetch('https://tle.ivanstanojevic.me/api/tle/25544');
+    if (!r.ok) throw new Error(r.status);
+    const d = await r.json();
+    if (d.line1 && d.line2) {
+      _issTLE = [d.line1, d.line2];
+      _tleTime = Date.now();
+      console.log('[ISS] TLE updated:', d.line1.substring(0,20));
+      return _issTLE;
+    }
+  } catch(e) { console.warn('[ISS TLE]', e.message); }
+  return null;
+}
+
+function calcFromTLE(l1, l2) {
+  function d2r(d){ return d*Math.PI/180; }
+  function r2d(r){ return r*180/Math.PI; }
+  const incl=d2r(parseFloat(l2.substring(8,16))), raan=d2r(parseFloat(l2.substring(17,25)));
+  const ecc=parseFloat('0.'+l2.substring(26,33).trim());
+  const argP=d2r(parseFloat(l2.substring(34,42))), M0=d2r(parseFloat(l2.substring(43,51)));
+  const mmRPD=parseFloat(l2.substring(52,63));
+  const epStr=l1.substring(18,32).trim();
+  const epYr=parseInt(epStr.substring(0,2));
+  const epDOY=parseFloat(epStr.substring(2));
+  const fy=epYr<57?2000+epYr:1900+epYr;
+  const epoch=Date.UTC(fy,0,1)+(epDOY-1)*86400000;
+  const dtDays=(Date.now()-epoch)/86400000;
+  const M=((M0+mmRPD*2*Math.PI*dtDays)%(2*Math.PI)+2*Math.PI)%(2*Math.PI);
+  let E=M; for(let i=0;i<15;i++) E-=(E-ecc*Math.sin(E)-M)/(1-ecc*Math.cos(E));
+  const nu=2*Math.atan2(Math.sqrt(1+ecc)*Math.sin(E/2),Math.sqrt(1-ecc)*Math.cos(E/2));
+  const nS=mmRPD*2*Math.PI/86400, a=Math.cbrt(398600.4418/(nS*nS)), r=a*(1-ecc*Math.cos(E));
+  const xp=r*Math.cos(nu), yp=r*Math.sin(nu);
+  const cR=Math.cos(raan),sR=Math.sin(raan),cI=Math.cos(incl),sI=Math.sin(incl),cA=Math.cos(argP),sA=Math.sin(argP);
+  const xI=(cR*cA-sR*sA*cI)*xp+(-cR*sA-sR*cA*cI)*yp;
+  const yI=(sR*cA+cR*sA*cI)*xp+(-sR*sA+cR*cA*cI)*yp;
+  const zI=(sA*sI)*xp+(cA*sI)*yp;
+  const jd=Date.now()/86400000+2440587.5, T=(jd-2451545)/36525;
+  const gst=((280.46061837+360.98564736629*(jd-2451545)+0.000387933*T*T)%360+360)%360*Math.PI/180;
+  const xE=xI*Math.cos(gst)+yI*Math.sin(gst), yE=-xI*Math.sin(gst)+yI*Math.cos(gst), zE=zI;
+  const lon=r2d(Math.atan2(yE,xE)), lat=r2d(Math.atan2(zE,Math.sqrt(xE*xE+yE*yE)));
+  return { lat, lon, alt: r-6371, vel: nS*a*3600 };
+}
+
+function calcOrbital() {
+  const now=Date.now(), d2r=d=>d*Math.PI/180, r2d=r=>r*180/Math.PI;
+  const INCL=d2r(51.6), MM=15.50, PERIOD=1440/MM;
+  const REF=new Date('2024-01-01T00:00:00Z').getTime();
+  const dtMin=(now-REF)/60000;
+  const phase=(dtMin%PERIOD)/PERIOD*2*Math.PI;
+  const raan=((-5.5*dtMin/1440)*Math.PI/180%(2*Math.PI)+2*Math.PI)%(2*Math.PI);
+  const cR=Math.cos(raan),sR=Math.sin(raan),cI=Math.cos(INCL);
+  const xECI=cR*Math.cos(phase)-sR*cI*Math.sin(phase);
+  const yECI=sR*Math.cos(phase)+cR*cI*Math.sin(phase);
+  const zECI=Math.sin(INCL)*Math.sin(phase);
+  const jd=now/86400000+2440587.5, T=(jd-2451545)/36525;
+  const gst=((280.46061837+360.98564736629*(jd-2451545)+0.000387933*T*T)%360+360)%360*Math.PI/180;
+  const xE=xECI*Math.cos(gst)+yECI*Math.sin(gst), yE=-xECI*Math.sin(gst)+yECI*Math.cos(gst);
+  return { lat:r2d(Math.atan2(zECI,Math.sqrt(xE*xE+yE*yE))), lon:r2d(Math.atan2(yE,xE)), alt:408, vel:27600 };
+}
+
+async function fetchISSPos() {
+  const tle = await refreshTLE();
+  if (tle) {
+    try {
+      const pos = calcFromTLE(tle[0], tle[1]);
+      if (!isNaN(pos.lat) && Math.abs(pos.lat) <= 90) return pos;
+    } catch(e) { console.warn('[ISS] TLE calc error:', e.message); }
+  }
+  return calcOrbital();
+}
+
 async function issTick() {
   const pos = await fetchISSPos();
   if (pos) {
