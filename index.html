@@ -6611,12 +6611,14 @@ function initQuakeLeafletMap() {
   if (!el || typeof L === 'undefined') return;
 
   _quakeMap = L.map(el, {
-    center: [20, 0], zoom: 1,
+    center: [20, 0], zoom: 2,
     zoomControl: true, attributionControl: false,
-    minZoom: 1, maxZoom: 6,
-    worldCopyJump: true,
+    minZoom: 2, maxZoom: 6,
+    worldCopyJump: false,
+    maxBounds: [[-90, -210], [90, 210]],
+    maxBoundsViscosity: 0.85,
   });
-  L.tileLayer(TILE_URL, { attribution:TILE_ATTR, maxZoom:19, className:'dark-map-tiles' }).addTo(_quakeMap);
+  L.tileLayer(TILE_URL, { attribution:TILE_ATTR, maxZoom:19, className:'dark-map-tiles', noWrap:false }).addTo(_quakeMap);
 }
 
 function drawQuakeMap(data) {
@@ -7571,13 +7573,15 @@ function initISSLeafletMap() {
   if (!el || typeof L === 'undefined') return;
 
   _issMap = L.map(el, {
-    center: [20, 0], zoom: 1,
+    center: [20, 0], zoom: 2,
     zoomControl: true, attributionControl: false,
-    minZoom: 1, maxZoom: 5,
-    worldCopyJump: true,
+    minZoom: 2, maxZoom: 6,
+    worldCopyJump: false,
+    maxBounds: [[-90, -210], [90, 210]],
+    maxBoundsViscosity: 0.85,
   });
 
-  L.tileLayer(TILE_URL, { attribution:TILE_ATTR, maxZoom:19, className:'dark-map-tiles' }).addTo(_issMap);
+  L.tileLayer(TILE_URL, { attribution:TILE_ATTR, maxZoom:19, className:'dark-map-tiles', noWrap:false }).addTo(_issMap);
 
   // ISS marker (custom div icon)
   const issIcon = L.divIcon({
@@ -7771,31 +7775,12 @@ async function issTick() {
     issHistory.push({ lat: pos.lat, lon: pos.lon });
     if (issHistory.length > 20) issHistory.shift();
     issTrack = predictTrack(pos.lat, pos.lon);
-  } else if (!issPos) {
-    // Draw empty map with message
-    const canvas = document.getElementById('issCanvas');
-    if (canvas) {
-      const W = canvas.parentElement.clientWidth || 800;
-      canvas.width = W; canvas.height = 380;
-      const ctx = canvas.getContext('2d');
-      ctx.fillStyle = '#020812'; ctx.fillRect(0,0,W,380);
-      // Draw coastlines anyway
-      ctx.strokeStyle='rgba(76,123,201,0.3)';ctx.lineWidth=1;
-      WORLD_LINES.forEach(line=>{
-        ctx.beginPath();
-        line.forEach(([lat,lon],i)=>{
-          const x=(lon+180)/360*W, y=(90-lat)/180*380;
-          i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
-        });
-        ctx.stroke();
-      });
-      ctx.font='13px Space Mono';ctx.fillStyle='rgba(255,255,255,0.3)';
-      ctx.textAlign='center';ctx.fillText('⚠️ Oczekiwanie na dane pozycji ISS...', W/2, 195);
-    }
   }
-  drawISSMap();
-  issUpdateHero();
-  issUpdatePass();
+  if (issPos) {
+    drawISSMap();   // update Leaflet map
+    issUpdateHero();
+    issUpdatePass();
+  }
 }
 
 // ── Init ────────────────────────────────────────────────────
