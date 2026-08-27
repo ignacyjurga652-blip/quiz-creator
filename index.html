@@ -1674,9 +1674,12 @@ html.is-desktop .tab-nav-inner { gap: 4px; }
    O NAS TAB
 ═══════════════════════════════════════════════════ */
 .about-hero {
-  text-align: center; padding: 60px 20px 48px;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  text-align: center; padding: 56px 20px 52px;
+  min-height: 340px;
   position: relative; overflow: hidden; margin-bottom: 40px;
-  background: radial-gradient(ellipse at 50% 0%, rgba(76,123,201,0.12), transparent 70%);
+  background: radial-gradient(ellipse at 50% 60%, rgba(76,123,201,0.14), transparent 70%);
   border: 1px solid rgba(76,123,201,0.15); border-radius: 24px;
 }
 .about-logo {
@@ -3514,7 +3517,7 @@ html.is-desktop .tab-nav-inner { gap: 4px; }
     <div class="about-hero">
       <canvas class="about-stars-bg" id="aboutStarsCanvas"></canvas>
       <div class="about-logo">CHRON<span>OS</span></div>
-      <div class="about-tagline">// Każda sekunda się liczy · Data stworzenia: 1 sierpnia 2026</div>
+      <div class="about-tagline">// Każda sekunda się liczy · Data stworzenia: 3 kwietnia 2025</div>
       <div class="about-age-counter">
         <div class="about-age-unit"><span class="about-age-val" id="ab_days">—</span><div class="about-age-lbl">Dni</div></div>
         <div class="about-age-sep">:</div>
@@ -6485,7 +6488,7 @@ function initEarthTab() {
 const FEATURED_CONFIG = {
 
   // Czy odliczanie ma być widoczne? true = tak, false = ukryj
-  enabled: true,
+  enabled: false,
 
   // Nazwa wyświetlana jako duży tytuł
   title: 'Moje wielkie wydarzenie',
@@ -8577,7 +8580,7 @@ function renderAQI_now() {
 // ═══════════════════════════════════════════════════════════
 //  O NAS TAB
 // ═══════════════════════════════════════════════════════════
-const CHRONOS_BORN = new Date('2026-08-01T00:00:00').getTime();
+const CHRONOS_BORN = new Date('2025-04-03T00:00:00').getTime();
 let _aboutInited = false, _aboutInterval = null;
 
 function initAboutTab() {
@@ -8587,15 +8590,26 @@ function initAboutTab() {
   // Starry background canvas
   const c = document.getElementById('aboutStarsCanvas');
   if (c) {
-    const rect = c.parentElement.getBoundingClientRect();
-    c.width = rect.width || 800; c.height = rect.height || 300;
-    const ctx = c.getContext('2d');
-    for (let i=0; i<120; i++) {
-      ctx.fillStyle = `rgba(255,255,255,${Math.random()*0.4+0.05})`;
-      ctx.beginPath();
-      ctx.arc(Math.random()*c.width, Math.random()*c.height, Math.random()*1.2, 0, Math.PI*2);
-      ctx.fill();
-    }
+    // Size to parent after layout settles
+    requestAnimationFrame(() => {
+      const rect = c.parentElement.getBoundingClientRect();
+      c.width = Math.round(rect.width) || 800;
+      c.height = Math.round(rect.height) || 340;
+      const ctx = c.getContext('2d');
+      ctx.clearRect(0,0,c.width,c.height);
+      for (let i=0; i<150; i++) {
+        const o = Math.random()*0.5+0.05;
+        ctx.fillStyle = `rgba(255,255,255,${o})`;
+        ctx.beginPath();
+        ctx.arc(Math.random()*c.width, Math.random()*c.height, Math.random()*1.3+0.2, 0, Math.PI*2);
+        ctx.fill();
+      }
+      // Subtle nebula glow
+      const g = ctx.createRadialGradient(c.width/2, c.height*0.6, 0, c.width/2, c.height*0.6, c.width*0.5);
+      g.addColorStop(0,'rgba(76,123,201,0.07)');
+      g.addColorStop(1,'rgba(76,123,201,0)');
+      ctx.fillStyle=g; ctx.fillRect(0,0,c.width,c.height);
+    });
   }
 
   function pad(n){ return String(Math.floor(n)).padStart(2,'0'); }
