@@ -3734,7 +3734,7 @@ const EVENTS_POOL=[
     fact:'<strong>Fakt:</strong> Wielka Brytania i Irlandia. Finał na Wembley — 90 000 widzów, historia futbolu.'},
   {emoji:'🏅',title:'Igrzyska Olimpijskie Los Angeles 2028',date:'2028-07-14T20:00:00',start:'2024-07-26T00:00:00',color:'#c94c4c',
     fact:'<strong>Fakt:</strong> LA gości Olimpiadę po raz trzeci: 1932, 1984, 2028 — jedyne takie miasto w historii.'},
-  {emoji:'🪐',title:'Opozycja Saturna 2026',date:'2026-09-21T00:00:00',start:'2026-01-01T00:00:00',color:'#d4b870',
+  {emoji:'🪐',title:'Opozycja Saturna 2026',date:'2026-10-04T19:00:00',start:'2026-01-01T00:00:00',color:'#d4b870',
     fact:'<strong>Fakt:</strong> W opozycji Saturn jest bliżej Ziemi i widoczny całą noc. Pierścienie widoczne przez lornetkę!'},
   {emoji:'🌍',title:'Dzień Ziemi 2026',date:'2026-04-22T00:00:00',start:'2026-01-01T00:00:00',color:'#4cc97a',
     fact:'<strong>Fakt:</strong> 22 kwietnia to Dzień Ziemi — obchodzony przez ponad miliard ludzi w 193 krajach od 1970 roku.'},
@@ -3988,6 +3988,159 @@ function getActiveEvents(){
     return t>now||(now-t)<TWO_DAYS;
   });
 }
+
+// ═══════════════════════════════════════════════════════════
+//  AUTO-FETCH NEW EVENTS — gdy odliczanie wygaśnie
+// ═══════════════════════════════════════════════════════════
+const NASA_KEY = '9L5YbYIdE2evYl64YdcmxeQvXPfxsFU3SJkf6hHa';
+const AUTO_EVENT_KEY = 'chronos_auto_events_v1';
+
+// Load saved auto-fetched events from localStorage
+(function loadSavedAutoEvents() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(AUTO_EVENT_KEY) || '[]');
+    saved.forEach(e => {
+      if (!EVENTS_POOL.find(p => p.title === e.title)) {
+        EVENTS_POOL.push(e);
+      }
+    });
+  } catch(e) {}
+})();
+
+function saveAutoEvents() {
+  try {
+    const AUTO_TITLES = EVENTS_POOL.filter(e => e._auto);
+    localStorage.setItem(AUTO_EVENT_KEY, JSON.stringify(AUTO_TITLES));
+  } catch(e) {}
+}
+
+// ── Źródła nowych wydarzeń ────────────────────────────────
+async function fetchUpcomingLaunch() {
+  try {
+    const res = await fetch('https://lldev.thespacedevs.com/2.2.0/launch/upcoming/?limit=5&format=json');
+    if (!res.ok) throw new Error(res.status);
+    const data = await res.json();
+    const launches = (data.results || []).filter(l => {
+      const d = new Date(l.net || l.window_start);
+      return d > new Date() && d < new Date(Date.now() + 60*86400000);
+    });
+    if (!launches.length) return null;
+    const l = launches[0];
+    const d = new Date(l.net || l.window_start);
+    return {
+      title: `Start rakiety: ${l.name}`,
+      subtitle: l.launch_service_provider?.name || l.rocket?.configuration?.name || 'Misja kosmiczna',
+      date: d.toISOString().slice(0,19),
+      color: '#4c7bc9', emoji: '🚀', cat: 'Kosmos', _auto: true,
+    };
+  } catch(e) { console.warn('[AutoEvent] SpaceDevs launch:', e.message); return null; }
+}
+
+async function fetchUpcomingAsteroid() {
+  try {
+    const start = new Date().toISOString().slice(0,10);
+    const end   = new Date(Date.now() + 30*86400000).toISOString().slice(0,10);
+    const url   = `https://api.nasa.gov/neo/rest/v1/feed?start_date=${start}&end_date=${end}&api_key=${NASA_KEY}`;
+    const res   = await fetch(url);
+    if (!res.ok) throw new Error(res.status);
+    const data  = await res.json();
+
+    // Znajdź najciekawszą asteroidę (potencjalnie niebezpieczną lub bardzo bliską)
+    const all = Object.values(data.near_earth_objects || {}).flat();
+    const interesting = all
+      .filter(a => {
+        const km = +a.close_approach_data?.[0]?.miss_distance?.kilometers;
+        return a.is_potentially_hazardous_asteroid || km < 2000000;
+      })
+      .sort((a,b) => {
+        const da = +a.close_approach_data?.[0]?.miss_distance?.kilometers;
+        const db = +b.close_approach_data?.[0]?.miss_distance?.kilometers;
+        return da - db;
+      });
+
+    if (!interesting.length) return null;
+    const ast = interesting[0];
+    const approach = ast.close_approach_data[0];
+    const km  = Math.round(+approach.miss_distance.kilometers / 1000);
+    const dia = ast.estimated_diameter?.kilometers;
+    const diaStr = dia ? ` (śr. ${(+(dia.estimated_diameter_min+dia.estimated_diameter_max)/2).toFixed(2)} km)` : '';
+    const dateStr = approach.close_approach_date + 'T12:00:00';
+
+    return {
+      title: `Asteroida ${ast.name.replace(/[()]/g,'')} przeleci obok Ziemi`,
+      subtitle: `Odległość: ${km.toLocaleString('pl-PL')} tys. km${diaStr}${ast.is_potentially_hazardous_asteroid?' · ⚠️ Potencjalnie niebezpieczna':''}`,
+      date: dateStr,
+      color: ast.is_potentially_hazardous_asteroid ? '#c94c4c' : '#c9774c',
+      emoji: '☄️', cat: 'Kosmos', _auto: true,
+    };
+  } catch(e) { console.warn('[AutoEvent] NASA NEO:', e.message); return null; }
+}
+
+// Fallback — rozszerzona baza generycznych wydarzeń
+const AUTO_FALLBACK = [
+  { title:'Geminidy — deszcz meteorów', subtitle:'Do 120 spadających gwiazd na godzinę', date:'2027-12-13T22:00:00', color:'#8a6cc9', emoji:'🌠', cat:'Astronomia' },
+  { title:'Perseidy 2027 — szczyt aktywności', subtitle:'Najsłynniejszy sierpniowy deszcz meteorów', date:'2027-08-12T23:00:00', color:'#c9a84c', emoji:'☄️', cat:'Astronomia' },
+  { title:'Przesilenie letnie 2027', subtitle:'Najdłuższy dzień roku', date:'2027-06-21T09:00:00', color:'#c9a84c', emoji:'☀️', cat:'Astronomia' },
+  { title:'Równonoc wiosenna 2027', subtitle:'Astronomiczny start wiosny', date:'2027-03-20T12:00:00', color:'#4cc97a', emoji:'🌸', cat:'Astronomia' },
+  { title:'Leonidy 2027 — rój meteorów', subtitle:'Rój z komety Tempel-Tuttle', date:'2027-11-17T03:00:00', color:'#c9774c', emoji:'🌟', cat:'Astronomia' },
+];
+
+async function autoFetchNewEvent() {
+  console.log('[AutoEvent] Szukam nowego wydarzenia...');
+
+  // Sprawdź czy nie mamy już za dużo przyszłych wydarzeń
+  const futureCount = EVENTS_POOL.filter(e => new Date(e.date) > new Date()).length;
+  if (futureCount >= 15) {
+    console.log('[AutoEvent] Wystarczy wydarzeń na liście:', futureCount);
+    return;
+  }
+
+  // Próbuj po kolei
+  let newEvent = await fetchUpcomingLaunch()
+               || await fetchUpcomingAsteroid();
+
+  // Fallback — wybierz z listy to czego jeszcze nie ma w puli
+  if (!newEvent) {
+    const existing = EVENTS_POOL.map(e => e.title);
+    const available = AUTO_FALLBACK.filter(e =>
+      !existing.includes(e.title) && new Date(e.date) > new Date()
+    );
+    if (available.length) newEvent = { ...available[0], _auto: true };
+  }
+
+  if (newEvent) {
+    EVENTS_POOL.push(newEvent);
+    saveAutoEvents();
+    renderAll();
+    showToast(`🆕 Nowe odliczanie: ${newEvent.emoji} ${newEvent.title}`);
+    console.log('[AutoEvent] Dodano:', newEvent.title);
+  }
+}
+
+// ── Sprawdzaj co 60s czy trzeba pobrać nowe wydarzenie ────
+setInterval(() => {
+  const now = Date.now();
+  const TWO_DAYS = 2 * 86400000;
+  const expiredCount = EVENTS_POOL.filter(e => {
+    const t = new Date(e.date).getTime();
+    return now - t >= TWO_DAYS;
+  }).length;
+
+  // Jeśli coś właśnie wygasło — odśwież listę i pobierz nowe
+  if (expiredCount > 0) {
+    // Usuń wygasłe z puli
+    const before = EVENTS_POOL.length;
+    EVENTS_POOL.splice(0, EVENTS_POOL.length, ...EVENTS_POOL.filter(e => {
+      const t = new Date(e.date).getTime();
+      return t > now || (now - t) < TWO_DAYS;
+    }));
+    if (EVENTS_POOL.length < before) {
+      renderAll();
+      autoFetchNewEvent(); // pobierz nowe
+    }
+  }
+}, 60000);
+
 
 function renderAll(){
   clearTimers();
