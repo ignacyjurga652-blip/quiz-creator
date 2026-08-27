@@ -1712,7 +1712,8 @@ html.is-desktop .tab-nav-inner { gap: 4px; }
 .about-stars-bg {
   position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 0;
 }
-.about-hero > * { position: relative; z-index: 1; }
+.about-hero > *:not(.about-stars-bg) { position: relative; z-index: 1; }
+.about-stars-bg { position: absolute !important; inset: 0; z-index: 0; pointer-events: none; }
 
 /* Stats grid */
 .about-stats {
