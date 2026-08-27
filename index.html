@@ -7784,6 +7784,135 @@ async function issTick() {
 }
 
 // ── Init ────────────────────────────────────────────────────
+// ── ISS Crew functions ─────────────────────────────────────
+async function fetchISSCrew() {
+  function tout(ms){ return new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),ms)); }
+  const FLAGS = {
+    American:'🇺🇸',Russian:'🇷🇺',German:'🇩🇪',French:'🇫🇷',Italian:'🇮🇹',
+    Japanese:'🇯🇵',Canadian:'🇨🇦',Danish:'🇩🇰',British:'🇬🇧',Chinese:'🇨🇳',
+    Emirati:'🇦🇪',Saudi:'🇸🇦',Belarusian:'🇧🇾',Kazakhstani:'🇰🇿',
+  };
+
+  // 1. Wikidata — query ISS directly
+  const QUERIES = [
+    `SELECT DISTINCT ?pLabel ?natLabel WHERE {
+      wd:Q29053 p:P1302 ?s .
+      ?s ps:P1302 ?p .
+      OPTIONAL { ?s pq:P582 ?end } FILTER(!BOUND(?end) || ?end >= NOW())
+      OPTIONAL { ?p wdt:P27 ?nat }
+      SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+    } LIMIT 12`,
+    `SELECT DISTINCT ?astLabel ?natLabel WHERE {
+      ?exp wdt:P31 wd:Q1142527 ; wdt:P1302 ?ast .
+      ?exp p:P580 [psv:P580 [wikibase:timeValue ?s]] .
+      OPTIONAL { ?exp p:P582 [psv:P582 [wikibase:timeValue ?e]] }
+      FILTER(?s <= NOW() && (!BOUND(?e) || ?e >= NOW()))
+      OPTIONAL { ?ast wdt:P27 ?nat }
+      SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+    } LIMIT 12`,
+  ];
+  for (const sparql of QUERIES) {
+    try {
+      const url = 'https://query.wikidata.org/sparql?format=json&query=' + encodeURIComponent(sparql);
+      const res = await Promise.race([fetch(url,{headers:{Accept:'application/sparql-results+json'}}),tout(10000)]);
+      if (!res.ok) throw new Error('HTTP '+res.status);
+      const json = await res.json();
+      const rows = (json.results?.bindings||[]).filter(r=>{
+        const n=r.pLabel?.value||r.astLabel?.value||'';
+        return n && !n.match(/^Q\d+$/) && n.length>3;
+      });
+      if (rows.length>=3&&rows.length<=12) {
+        return rows.map(r=>({
+          name:r.pLabel?.value||r.astLabel?.value||'—',
+          agency:r.natLabel?.value||'—',
+          flag:FLAGS[r.natLabel?.value]||'🧑‍🚀',
+          daysInSpace:null, source:'Wikidata', photo:null,
+        }));
+      }
+    } catch(e){ console.warn('[ISS crew] Wikidata:',e.message); }
+  }
+
+  // 2. SpaceDevs expedition endpoint
+  try {
+    const expRes = await Promise.race([
+      fetch('https://ll.thespacedevs.com/2.2.0/expedition/?limit=1&ordering=-start&end__isnull=true&format=json'),
+      tout(8000)
+    ]);
+    if (expRes.ok) {
+      const expData = await expRes.json();
+      const exp = expData.results?.[0];
+      if (exp) {
+        const crewRes = await Promise.race([
+          fetch(`https://ll.thespacedevs.com/2.2.0/expedition/${exp.id}/?format=json`),
+          tout(8000)
+        ]);
+        if (crewRes.ok) {
+          const cd = await crewRes.json();
+          const crew = (cd.crew||[]).slice(0,10).map(c=>({
+            name:c.astronaut?.name||'—',
+            agency:c.astronaut?.agency?.abbrev||'—',
+            flag:FLAGS[c.astronaut?.nationality]||'🧑‍🚀',
+            daysInSpace:null,
+            photo:c.astronaut?.profile_image_thumbnail||c.astronaut?.profile_image||null,
+            source:'SpaceDevs',
+          }));
+          if (crew.length>=3) return crew;
+        }
+      }
+    }
+  } catch(e){ console.warn('[ISS crew] SpaceDevs:',e.message); }
+
+  return [];
+}
+
+function issRenderCrew(crew) {
+  const grid = document.getElementById('issCrewGrid');
+  if (!grid) return;
+  if (!crew||!crew.length) {
+    grid.innerHTML='<div style="padding:20px;font-family:var(--mono);font-size:11px;color:var(--text-dim);line-height:1.8;">⚠️ Nie udało się pobrać danych załogi.</div>';
+    return;
+  }
+  const AGENCY_COLOR={'NASA':'#4c7bc9','ESA':'#4cc97a','Roscosmos':'#c94c4c','JAXA':'#c9a84c','CSA':'#8a6cc9'};
+  const src=crew[0]?.source||'API';
+  const now=new Date().toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'});
+  const warning=`<div style="grid-column:1/-1;font-family:var(--mono);font-size:9px;color:rgba(255,255,255,.2);letter-spacing:.08em;">✓ ${src} · ${now}</div>`;
+
+  grid.innerHTML = warning + crew.map((p,i)=>{
+    const col=AGENCY_COLOR[p.agency]||'#4cc97a';
+    const photoBlock=p.photo
+      ?`<img class="iss-crew-photo" id="crew-photo-${i}" src="${p.photo}" alt="${p.name}" onerror="this.style.display='none'"/>`
+      :`<div class="iss-crew-photo-placeholder" id="crew-photo-${i}">${p.flag||'🧑‍🚀'}</div>`;
+    return `<div class="iss-crew-card" style="--cc:${col}">
+      ${photoBlock}
+      <div class="iss-crew-name">${p.name}</div>
+      <div class="iss-crew-agency">${p.agency}</div>
+      <div class="iss-crew-craft" style="margin-top:8px;">
+        <span class="live-dot" style="width:5px;height:5px;"></span> Na pokładzie ISS
+      </div>
+    </div>`;
+  }).join('');
+
+  const el=document.getElementById('iss_crew_n');
+  if(el) el.textContent=crew.length;
+
+  // Wikipedia photos for crew without photos
+  crew.forEach((p,i)=>{
+    if(p.photo) return;
+    const url='https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch='+encodeURIComponent(p.name)+'&gsrlimit=1&prop=pageimages&format=json&pithumbsize=200&origin=*';
+    fetch(url).then(r=>r.json()).then(data=>{
+      const pages=Object.values(data?.query?.pages||{});
+      const src=pages[0]?.thumbnail?.source;
+      if(!src) return;
+      const el=document.getElementById('crew-photo-'+i);
+      if(!el) return;
+      const img=document.createElement('img');
+      img.className='iss-crew-photo'; img.src=src; img.alt=p.name;
+      img.onerror=()=>img.remove();
+      el.parentNode.replaceChild(img,el);
+    }).catch(()=>{});
+  });
+}
+
 async function initISSTab() {
   if (issInited) return;
   issInited = true;
@@ -7797,7 +7926,7 @@ async function initISSTab() {
   issRenderCrew(crew);
 
   // Repeat every 5 seconds
-  issInterval = setInterval(issTick, 5000);
+  issInterval = setInterval(issTick, 3000); // 3s for smoother live movement
 
   // Resize handler
   window.addEventListener('resize', () => { if(issInited) drawISSMap(); });
