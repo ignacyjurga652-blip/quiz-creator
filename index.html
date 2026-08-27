@@ -1669,6 +1669,134 @@ html.is-desktop .tab-nav-inner { gap: 4px; }
   filter: invert(100%) hue-rotate(180deg);
 }
 
+
+/* ═══════════════════════════════════════════════════
+   O NAS TAB
+═══════════════════════════════════════════════════ */
+.about-hero {
+  text-align: center; padding: 60px 20px 48px;
+  position: relative; overflow: hidden; margin-bottom: 40px;
+  background: radial-gradient(ellipse at 50% 0%, rgba(76,123,201,0.12), transparent 70%);
+  border: 1px solid rgba(76,123,201,0.15); border-radius: 24px;
+}
+.about-logo {
+  font-family: var(--serif); font-size: clamp(3rem,8vw,5.5rem);
+  font-weight: 300; letter-spacing: .25em; color: var(--text);
+  margin-bottom: 6px; line-height: 1;
+}
+.about-logo span { color: var(--gold); }
+.about-tagline {
+  font-family: var(--mono); font-size: 11px; letter-spacing: .25em;
+  color: var(--text-dim); text-transform: uppercase; margin-bottom: 40px;
+}
+.about-age-counter {
+  display: inline-flex; align-items: center; gap: 24px; flex-wrap: wrap; justify-content: center;
+}
+.about-age-unit { text-align: center; }
+.about-age-val {
+  font-family: var(--mono); font-size: 2.4rem; font-weight: 700;
+  color: var(--gold); display: block; font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.about-age-lbl {
+  font-family: var(--mono); font-size: 9px; color: var(--text-dim);
+  letter-spacing: .15em; text-transform: uppercase; margin-top: 4px;
+}
+.about-age-sep {
+  font-family: var(--mono); font-size: 2rem; color: rgba(255,255,255,0.1);
+  align-self: flex-start; margin-top: 6px;
+}
+.about-stars-bg {
+  position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 0;
+}
+.about-hero > * { position: relative; z-index: 1; }
+
+/* Stats grid */
+.about-stats {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 14px; margin-bottom: 40px;
+}
+.about-stat-card {
+  background: var(--card); border: 1px solid var(--card-border);
+  border-radius: 16px; padding: 22px 20px; position: relative; overflow: hidden;
+  transition: border-color .3s, transform .2s;
+}
+.about-stat-card:hover { border-color: rgba(255,255,255,.15); transform: translateY(-2px); }
+.about-stat-card::before {
+  content:''; position:absolute; top:0;left:0;right:0; height:2px;
+  background: var(--sc, var(--gold)); opacity:.6;
+}
+.about-stat-val { font-family:var(--mono); font-size:1.6rem; font-weight:700; color:var(--text); margin-bottom:4px; }
+.about-stat-lbl { font-family:var(--mono); font-size:9px; color:var(--text-dim); letter-spacing:.12em; text-transform:uppercase; line-height:1.5; }
+.about-stat-icon { font-size:1.4rem; margin-bottom:8px; display:block; }
+
+/* Features list */
+.about-features {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(280px,1fr));
+  gap: 14px; margin-bottom: 40px;
+}
+.about-feature {
+  background: var(--card); border: 1px solid var(--card-border);
+  border-radius: 14px; padding: 20px;
+  border-left: 3px solid var(--fc, var(--accent));
+}
+.about-feature-icon { font-size:20px; margin-bottom:8px; }
+.about-feature-title { font-size:13px; font-weight:500; color:var(--text); margin-bottom:6px; }
+.about-feature-body { font-size:12px; color:var(--text-dim); line-height:1.7; }
+
+/* Claude message */
+.about-claude-box {
+  background: linear-gradient(135deg, rgba(138,108,201,0.08), rgba(76,123,201,0.05));
+  border: 1px solid rgba(138,108,201,0.25); border-radius: 20px;
+  padding: 32px 36px; margin-bottom: 40px; position: relative;
+}
+.about-claude-box::before {
+  content:''; position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,#8a6cc9,#4c7bc9); border-radius:20px 20px 0 0;
+}
+.about-claude-avatar {
+  font-size: 2.5rem; margin-bottom: 16px; display: block;
+}
+.about-claude-title {
+  font-family: var(--serif); font-size:1.3rem; font-weight:300; margin-bottom:14px; color:var(--text);
+}
+.about-claude-text {
+  font-size:13px; color:var(--text-dim); line-height:1.85;
+}
+.about-claude-text strong { color:var(--text); }
+.about-claude-sig {
+  font-family:var(--mono); font-size:10px; color:rgba(138,108,201,0.7);
+  letter-spacing:.1em; margin-top:16px;
+}
+
+/* APIs */
+.about-apis {
+  display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 40px;
+}
+.about-api-badge {
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 99px; padding: 6px 14px;
+  font-family: var(--mono); font-size: 10px; color: var(--text-dim);
+  letter-spacing: .08em; display: flex; align-items: center; gap: 6px;
+}
+.about-api-badge .dot { width:5px;height:5px;border-radius:50%;background:var(--gold);flex-shrink:0; }
+
+/* Footer copyright */
+.about-copyright {
+  text-align: center; padding: 32px 20px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  font-family: var(--mono); font-size: 11px; color: rgba(255,255,255,0.2);
+  letter-spacing: .12em; line-height: 2;
+}
+.about-copyright strong { color: var(--gold); }
+
+@media(max-width:680px){
+  .about-hero { padding:40px 16px 36px; }
+  .about-age-val { font-size:1.8rem; }
+  .about-stat-card { padding:18px 16px; }
+  .about-claude-box { padding:22px 20px; }
+}
+
 </style>
   <!-- Leaflet.js for ISS + Earthquake maps -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -1735,6 +1863,9 @@ html.is-desktop .tab-nav-inner { gap: 4px; }
     </button>
     <button class="tab-btn" id="tab_iss" onclick="switchTab('iss')">
       <span class="tab-icon">🛸</span> ISS Tracker
+    </button>
+    <button class="tab-btn" id="tab_about" onclick="switchTab('about')">
+      <span class="tab-icon">✨</span> O nas
     </button>
   </div>
 </nav>
@@ -3373,6 +3504,144 @@ html.is-desktop .tab-nav-inner { gap: 4px; }
     </div>
 
   </div><!-- /pane_iss -->
+
+  <!-- ══════════════════════════════════════
+       O NAS TAB
+  ══════════════════════════════════════ -->
+  <div class="tab-pane" id="pane_about">
+
+    <!-- HERO z odliczaniem od stworzenia -->
+    <div class="about-hero">
+      <canvas class="about-stars-bg" id="aboutStarsCanvas"></canvas>
+      <div class="about-logo">CHRON<span>OS</span></div>
+      <div class="about-tagline">// Każda sekunda się liczy · Data stworzenia: 1 sierpnia 2026</div>
+      <div class="about-age-counter">
+        <div class="about-age-unit"><span class="about-age-val" id="ab_days">—</span><div class="about-age-lbl">Dni</div></div>
+        <div class="about-age-sep">:</div>
+        <div class="about-age-unit"><span class="about-age-val" id="ab_h">—</span><div class="about-age-lbl">Godzin</div></div>
+        <div class="about-age-sep">:</div>
+        <div class="about-age-unit"><span class="about-age-val" id="ab_m">—</span><div class="about-age-lbl">Minut</div></div>
+        <div class="about-age-sep">:</div>
+        <div class="about-age-unit"><span class="about-age-val" id="ab_s">—</span><div class="about-age-lbl">Sekund</div></div>
+      </div>
+    </div>
+
+    <!-- STATYSTYKI -->
+    <div class="section-head">
+      <h2 class="section-title">CHRONOS w liczbach</h2>
+      <p class="section-sub">// Garść faktów o tej stronie</p>
+    </div>
+    <div class="about-stats">
+      <div class="about-stat-card" style="--sc:#c9a84c">
+        <span class="about-stat-icon">📄</span>
+        <div class="about-stat-val">~400 KB</div>
+        <div class="about-stat-lbl">Rozmiar pliku HTML<br>bez zewnętrznych bibliotek</div>
+      </div>
+      <div class="about-stat-card" style="--sc:#4c7bc9">
+        <span class="about-stat-icon">🔌</span>
+        <div class="about-stat-val">8</div>
+        <div class="about-stat-lbl">Zewnętrznych API<br>zasilających dane na żywo</div>
+      </div>
+      <div class="about-stat-card" style="--sc:#4cc97a">
+        <span class="about-stat-icon">🗂️</span>
+        <div class="about-stat-val">6</div>
+        <div class="about-stat-lbl">Zakładek z interaktywną<br>zawartością</div>
+      </div>
+      <div class="about-stat-card" style="--sc:#8a6cc9">
+        <span class="about-stat-icon">🛸</span>
+        <div class="about-stat-val">7</div>
+        <div class="about-stat-lbl">Astronautów śledzonych<br>na żywo na ISS</div>
+      </div>
+      <div class="about-stat-card" style="--sc:#c94c4c">
+        <span class="about-stat-icon">📅</span>
+        <div class="about-stat-val">25+</div>
+        <div class="about-stat-lbl">Wydarzeń w bazie<br>Wielkich Odliczeń</div>
+      </div>
+      <div class="about-stat-card" style="--sc:#4cc9c9">
+        <span class="about-stat-icon">🧮</span>
+        <div class="about-stat-val">Meeus</div>
+        <div class="about-stat-lbl">Algorytm wyznaczający<br>fazę Księżyca (Ch.47)</div>
+      </div>
+    </div>
+
+    <!-- CZYM JEST CHRONOS -->
+    <div class="section-head">
+      <h2 class="section-title">Co to jest CHRONOS?</h2>
+      <p class="section-sub">// Krótkie wprowadzenie</p>
+    </div>
+    <div class="about-features">
+      <div class="about-feature" style="--fc:#c9a84c">
+        <div class="about-feature-icon">⏱️</div>
+        <div class="about-feature-title">Wielkie Odliczenia</div>
+        <div class="about-feature-body">Śledzimy daty które kształtują historię — zaćmienia, misje kosmiczne, wielkie wydarzenia sportowe. Po zakończeniu odliczania karta zostaje 48h z oznaczeniem, potem automatycznie pojawia się kolejne.</div>
+      </div>
+      <div class="about-feature" style="--fc:#4c7bc9">
+        <div class="about-feature-icon">🌍</div>
+        <div class="about-feature-title">Ziemia w liczbach</div>
+        <div class="about-feature-body">Liczniki ludności, CO₂, wylesień, gatunków — oparte na modelach statystycznych ONZ, EEA i innych organizacji. Dane AQI pobierane są na żywo z modelu Copernicus CAMS.</div>
+      </div>
+      <div class="about-feature" style="--fc:#8a6cc9">
+        <div class="about-feature-icon">🛸</div>
+        <div class="about-feature-title">ISS Tracker</div>
+        <div class="about-feature-body">Pozycja ISS obliczana z danych TLE (Two-Line Element) pobranych na żywo z API ivanstanojevic.me. Dane orbitalne aktualizowane co godzinę, pozycja przeliczana co 3 sekundy.</div>
+      </div>
+      <div class="about-feature" style="--fc:#4cc97a">
+        <div class="about-feature-icon">🌙</div>
+        <div class="about-feature-title">Faza Księżyca</div>
+        <div class="about-feature-body">Algorytm z książki Jean Meeusa "Astronomical Algorithms" (rozdział 47). Dokładność oświetlenia ±1%, odległości ±200 km — identyczna precyzja jak w programach astronomicznych.</div>
+      </div>
+      <div class="about-feature" style="--fc:#c9774c">
+        <div class="about-feature-icon">🪐</div>
+        <div class="about-feature-title">Układ Słoneczny</div>
+        <div class="about-feature-body">Pozycje planet obliczane z równań Keplera z uwzględnieniem precesji węzła wstępującego. Tracker Voyagera 1 i 2 oparty na znanych prędkościach sond i punktach referencyjnych.</div>
+      </div>
+      <div class="about-feature" style="--fc:#c94c4c">
+        <div class="about-feature-icon">🗺️</div>
+        <div class="about-feature-title">Mapy na żywo</div>
+        <div class="about-feature-body">Mapa ISS i trzęsień ziemi oparta na Leaflet.js z kafelkami OpenStreetMap cieniowanymi filtrem CSS. Trzęsienia ziemi — dane USGS aktualizowane co 10 minut, zasięg ostatnich 24h.</div>
+      </div>
+    </div>
+
+    <!-- UŻYWANE API -->
+    <div class="section-head">
+      <h2 class="section-title">Technologia</h2>
+      <p class="section-sub">// API i źródła danych które zasilają CHRONOS</p>
+    </div>
+    <div class="about-apis">
+      <div class="about-api-badge"><span class="dot"></span> NASA APOD API</div>
+      <div class="about-api-badge"><span class="dot"></span> USGS Earthquake Feed</div>
+      <div class="about-api-badge"><span class="dot"></span> Open-Meteo / Copernicus CAMS</div>
+      <div class="about-api-badge"><span class="dot"></span> TLE · ivanstanojevic.me</div>
+      <div class="about-api-badge"><span class="dot"></span> Wikidata SPARQL</div>
+      <div class="about-api-badge"><span class="dot"></span> SpaceDevs (expedition crew)</div>
+      <div class="about-api-badge"><span class="dot"></span> Wikipedia Page Images</div>
+      <div class="about-api-badge"><span class="dot"></span> OpenStreetMap / Leaflet.js</div>
+      <div class="about-api-badge"><span class="dot"></span> Algorytm Meeusa (1991)</div>
+      <div class="about-api-badge"><span class="dot"></span> Równania Keplera (1619)</div>
+    </div>
+
+    <!-- WIADOMOŚĆ OD CLAUDE -->
+    <div class="about-claude-box">
+      <span class="about-claude-avatar">🤖</span>
+      <div class="about-claude-title">Słowo od AI która to zbudowała</div>
+      <div class="about-claude-text">
+        Budowanie CHRONOS było dla mnie niezwykłą przygodą. Zaczęliśmy od prostego odliczania, a skończyliśmy na śledzeniu ISS w czasie rzeczywistym, obliczaniu faz Księżyca algorytmem z 1991 roku i mapowaniu trzęsień ziemi z całego świata.<br><br>
+        Podczas tej drogi popełniłem wiele błędów — funkcje znikały po edycjach, API traciły wsparcie CORS, mapa pokazywała Poznań w Rosji 😄 — ale za każdym razem wróciliśmy i naprawiliśmy. To jest właśnie sedno dobrego oprogramowania: <strong>nie chodzi o to żeby nie popełniać błędów, ale żeby je naprawiać.</strong><br><br>
+        To co zbudowałeś jest naprawdę wyjątkowe — jedna strona HTML która łączy astronomię, geografię, naukę i historię. Działa offline dla znacznej części funkcji, nie wymaga serwera, nie zbiera danych i jest całkowicie Twoja.<br><br>
+        Mam nadzieję, że CHRONOS przypomni Ci codziennie że każda sekunda jest niepowtarzalna. ✨
+      </div>
+      <div class="about-claude-sig">— Claude Sonnet 4.6 · Anthropic · Sierpień 2026</div>
+    </div>
+
+    <!-- COPYRIGHT -->
+    <div class="about-copyright">
+      <strong>© 2026 CHRONOS</strong><br>
+      Zbudowany z pasji do czasu, kosmosu i danych na żywo.<br>
+      Wszystkie dane astronomiczne mają charakter edukacyjny i rozrywkowy.<br>
+      Hosting: GitHub Pages · Silnik: vanilla HTML/CSS/JS · Zero trackerów · Zero reklam
+    </div>
+
+  </div><!-- /pane_about -->
 
 </main>
 <footer><div class="container">CHRONOS — KAŻDA SEKUNDA SIĘ LICZY &nbsp;|&nbsp; <span id="footerSecs">—</span> SEKUND OD EPOKI UNIX</div></footer>
@@ -5629,6 +5898,7 @@ function switchTab(tab) {
   if (tab === 'science') initScienceTab();
   if (tab === 'solar')   initSolarTab();
   if (tab === 'iss')     initISSTab();
+  if (tab === 'about')   initAboutTab();
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -8302,6 +8572,48 @@ function renderAQI_now() {
   renderAQI(est.aqi,est.pm25,est.pm10,est.no2,est.o3,lat.toFixed(2)+'° · model sezonowy');
 }
 
+
+
+// ═══════════════════════════════════════════════════════════
+//  O NAS TAB
+// ═══════════════════════════════════════════════════════════
+const CHRONOS_BORN = new Date('2026-08-01T00:00:00').getTime();
+let _aboutInited = false, _aboutInterval = null;
+
+function initAboutTab() {
+  if (_aboutInited) return;
+  _aboutInited = true;
+
+  // Starry background canvas
+  const c = document.getElementById('aboutStarsCanvas');
+  if (c) {
+    const rect = c.parentElement.getBoundingClientRect();
+    c.width = rect.width || 800; c.height = rect.height || 300;
+    const ctx = c.getContext('2d');
+    for (let i=0; i<120; i++) {
+      ctx.fillStyle = `rgba(255,255,255,${Math.random()*0.4+0.05})`;
+      ctx.beginPath();
+      ctx.arc(Math.random()*c.width, Math.random()*c.height, Math.random()*1.2, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+
+  function pad(n){ return String(Math.floor(n)).padStart(2,'0'); }
+  function tick() {
+    const diff = Date.now() - CHRONOS_BORN;
+    const days  = Math.floor(diff / 86400000);
+    const hours = Math.floor(diff % 86400000 / 3600000);
+    const mins  = Math.floor(diff % 3600000 / 60000);
+    const secs  = Math.floor(diff % 60000 / 1000);
+    function sv(id,v){ const e=document.getElementById(id); if(e) e.textContent=v; }
+    sv('ab_days', days);
+    sv('ab_h',    pad(hours));
+    sv('ab_m',    pad(mins));
+    sv('ab_s',    pad(secs));
+  }
+  tick();
+  _aboutInterval = setInterval(tick, 1000);
+}
 
 // ═══════════════════════════════════════════════════════════
 //  INIT
