@@ -3233,6 +3233,7 @@ html.is-desktop .tab-nav-inner { gap: 4px; }
         <div class="iss-leg"><div class="iss-leg-dot" style="background:rgba(76,201,122,.3);"></div>Tor lotu (90 min)</div>
         <div class="iss-leg"><div class="iss-leg-dot" style="background:#c9a84c"></div>Twoja lokalizacja</div>
         <div class="iss-leg"><div class="iss-leg-dot" style="background:rgba(255,255,255,.08)"></div>Strefa nocna</div>
+        <button onclick="issResetLocation()" style="margin-left:auto;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);color:var(--text-dim);border-radius:6px;padding:4px 10px;font-family:var(--mono);font-size:9px;letter-spacing:.1em;cursor:pointer;" title="Zresetuj lokalizację">↺ Resetuj lokalizację</button>
       </div>
     </div>
 
@@ -7773,12 +7774,24 @@ function drawISSMap() {
   // User location
   if (sunLat!=null) {
     const ux=(sunLon+180)/360*W, uy=(90-sunLat)/180*H;
+    // Glow
+    const ug=ctx.createRadialGradient(ux,uy,0,ux,uy,16);
+    ug.addColorStop(0,'rgba(201,168,76,0.4)');ug.addColorStop(1,'rgba(201,168,76,0)');
+    ctx.fillStyle=ug;ctx.beginPath();ctx.arc(ux,uy,16,0,Math.PI*2);ctx.fill();
+    // Dot
     ctx.fillStyle='#c9a84c';
     ctx.beginPath();ctx.arc(ux,uy,5,0,Math.PI*2);ctx.fill();
-    ctx.strokeStyle='rgba(201,168,76,0.4)';ctx.lineWidth=1;
-    ctx.beginPath();ctx.arc(ux,uy,14,0,Math.PI*2);ctx.stroke();
-    ctx.font='9px Space Mono';ctx.fillStyle='rgba(201,168,76,0.7)';
-    ctx.textAlign='center';ctx.fillText('📍',ux,uy-18);
+    ctx.strokeStyle='rgba(255,255,255,0.6)';ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.arc(ux,uy,5,0,Math.PI*2);ctx.stroke();
+    // Coordinate label
+    ctx.font='8px Space Mono';
+    ctx.textAlign= ux > W*0.7 ? 'right' : 'left';
+    ctx.textBaseline='middle';
+    const latStr=(sunLat>=0?sunLat.toFixed(1)+'°N':Math.abs(sunLat).toFixed(1)+'°S');
+    const lonStr=(sunLon>=0?sunLon.toFixed(1)+'°E':Math.abs(sunLon).toFixed(1)+'°W');
+    ctx.fillStyle='rgba(201,168,76,0.9)';
+    const lx = ux > W*0.7 ? ux-8 : ux+8;
+    ctx.fillText('📍 '+latStr+' '+lonStr, lx, uy);
   }
 
   // ISS position
@@ -8423,6 +8436,25 @@ function discNever() {
   update();
   setInterval(update, 5 * 60000);
 })();
+
+
+function issResetLocation() {
+  try { localStorage.removeItem('chronos_location_v1'); } catch(e) {}
+  showToast('🗑️ Lokalizacja zresetowana — odśwież stronę aby pobrać nową');
+  // Trigger geolocation immediately
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      p => {
+        const {latitude:lat, longitude:lon} = p.coords;
+        try { localStorage.setItem('chronos_location_v1', JSON.stringify({lat,lon,ts:Date.now()})); } catch(e) {}
+        applyLocation(lat, lon, 'Twoja lokalizacja 📍', p.coords.accuracy);
+        showToast('✓ Lokalizacja zaktualizowana: ' + lat.toFixed(2) + '°, ' + lon.toFixed(2) + '°');
+      },
+      () => showToast('⚠️ Nie udało się pobrać lokalizacji'),
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }
+}
 
 // ═══════════════════════════════════════════════════════════
 //  INIT
