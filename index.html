@@ -1611,7 +1611,57 @@ html.is-desktop .tab-nav-inner { gap: 4px; }
   animation: tooltipIn .2s cubic-bezier(.16,1,.3,1) forwards;
 }
 
+
+/* ── LEAFLET MAP OVERRIDES ─────────────────────────────── */
+.leaflet-container { background: #020812 !important; }
+.leaflet-control-attribution { display: none !important; }
+.leaflet-control-zoom a {
+  background: rgba(8,10,24,0.9) !important;
+  border: 1px solid rgba(76,123,201,0.3) !important;
+  color: rgba(255,255,255,0.5) !important;
+}
+.leaflet-control-zoom a:hover { color: #fff !important; }
+.iss-map-div { height: 380px; border-radius: 0; }
+.quake-map-div { height: 340px; border-radius: 0; }
+
+/* ISS marker */
+.iss-dot {
+  width: 14px; height: 14px; border-radius: 50%;
+  background: #4cc97a; border: 2px solid #fff;
+  box-shadow: 0 0 0 4px rgba(76,201,122,0.3), 0 0 20px rgba(76,201,122,0.5);
+  animation: issPulse 2s ease-in-out infinite;
+}
+@keyframes issPulse {
+  0%,100%{ box-shadow:0 0 0 4px rgba(76,201,122,0.3),0 0 20px rgba(76,201,122,0.4); }
+  50%     { box-shadow:0 0 0 8px rgba(76,201,122,0.1),0 0 30px rgba(76,201,122,0.7); }
+}
+.iss-dot-label {
+  font-family: 'Space Mono', monospace; font-size: 10px;
+  color: #4cc97a; white-space: nowrap;
+  text-shadow: 0 0 8px rgba(76,201,122,0.8);
+  margin-top: 2px; text-align: center;
+}
+
+/* User location marker */
+.user-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: #c9a84c; border: 2px solid rgba(255,255,255,0.6);
+  box-shadow: 0 0 10px rgba(201,168,76,0.6);
+}
+
+/* Quake tooltip */
+.quake-popup .leaflet-popup-content-wrapper {
+  background: rgba(6,8,20,0.95);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px; color: var(--text);
+  font-family: 'Space Mono', monospace; font-size: 11px;
+}
+.quake-popup .leaflet-popup-tip { background: rgba(6,8,20,0.95); }
+
 </style>
+  <!-- Leaflet.js for ISS + Earthquake maps -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
 
@@ -2733,10 +2783,7 @@ html.is-desktop .tab-nav-inner { gap: 4px; }
           </div>
           <div class="quake-count"><span id="quakeCount">—</span> zdarzeń</div>
         </div>
-        <div class="quake-map-wrap">
-          <canvas id="quakeCanvas" height="340"></canvas>
-          <div class="quake-tooltip" id="quakeTip"></div>
-        </div>
+        <div id="quakeLeafletMap" class="quake-map-div"></div>
         <div class="quake-legend">
           <div class="quake-leg"><div class="quake-leg-dot" style="background:#4cc97a"></div>M &lt; 2</div>
           <div class="quake-leg"><div class="quake-leg-dot" style="background:#c9a84c"></div>M 2–4</div>
@@ -3224,10 +3271,7 @@ html.is-desktop .tab-nav-inner { gap: 4px; }
           <span class="live-dot"></span> Na żywo
         </div>
       </div>
-      <div style="padding:12px 16px 0;position:relative;">
-        <canvas id="issCanvas" height="380"></canvas>
-        <div class="iss-tip" id="issTip"></div>
-      </div>
+      <div id="issLeafletMap" class="iss-map-div"></div>
       <div class="iss-map-legend">
         <div class="iss-leg"><div class="iss-leg-dot" style="background:#4cc97a;box-shadow:0 0 6px #4cc97a"></div>ISS (aktualna pozycja)</div>
         <div class="iss-leg"><div class="iss-leg-dot" style="background:rgba(76,201,122,.3);"></div>Tor lotu (90 min)</div>
@@ -6546,276 +6590,64 @@ function quakeMagSize(mag) {
 
 let quakeDots = [];
 
+// ── Quake Leaflet Map ────────────────────────────────────────
+let _quakeMap     = null;
+let _quakeLayer   = null;
+
+function initQuakeLeafletMap() {
+  if (_quakeMap) return;
+  const el = document.getElementById('quakeLeafletMap');
+  if (!el || typeof L === 'undefined') return;
+
+  _quakeMap = L.map(el, {
+    center: [20, 0], zoom: 1,
+    zoomControl: true, attributionControl: false,
+    minZoom: 1, maxZoom: 6,
+    worldCopyJump: true,
+  });
+  L.tileLayer(CARTO_DARK, { subdomains:'abcd', maxZoom:19 }).addTo(_quakeMap);
+}
+
 function drawQuakeMap(data) {
-  const canvas = document.getElementById('quakeCanvas');
-  if (!canvas) return;
-  const W = canvas.parentElement.clientWidth || 700;
-  canvas.width = W; canvas.height = 340;
-  const ctx = canvas.getContext('2d');
-  const H = 340;
+  if (!_quakeMap) { initQuakeLeafletMap(); }
+  if (!_quakeMap) return;
 
-  // Background
-  ctx.fillStyle = '#020812'; ctx.fillRect(0,0,W,H);
+  if (_quakeLayer) { _quakeMap.removeLayer(_quakeLayer); }
 
-  // Grid
-  ctx.strokeStyle='rgba(255,255,255,0.04)'; ctx.lineWidth=1;
-  for(let lon=-180;lon<=180;lon+=30){
-    const x=(lon+180)/360*W;
-    ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();
+  function magColor(m) {
+    if (m >= 6)  return '#c94c4c';
+    if (m >= 4)  return '#c9774c';
+    if (m >= 2)  return '#c9a84c';
+    return '#4cc97a';
   }
-  for(let lat=-90;lat<=90;lat+=30){
-    const y=(90-lat)/180*H;
-    ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();
+  function magRadius(m) {
+    if (m >= 7)  return 18;
+    if (m >= 6)  return 13;
+    if (m >= 5)  return 9;
+    if (m >= 4)  return 6;
+    if (m >= 2)  return 4;
+    return 3;
   }
 
-  // Coastlines
-  ctx.strokeStyle='rgba(76,123,201,0.55)'; ctx.lineWidth=1;
-  WORLD_LINES.forEach(line=>{
-    ctx.beginPath();
-    line.forEach(([lat,lon],i)=>{
-      const x=(lon+180)/360*W, y=(90-lat)/180*H;
-      i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  _quakeLayer = L.layerGroup();
+  data.forEach(q => {
+    const circle = L.circleMarker([q.lat, q.lon], {
+      radius: magRadius(q.mag),
+      fillColor: magColor(q.mag), fillOpacity: 0.75,
+      color: magColor(q.mag), weight: 0.5, opacity: 0.9,
     });
-    ctx.stroke();
+    const ago = Math.floor((Date.now()-q.time)/60000);
+    const agoStr = ago < 60 ? ago+'min' : Math.floor(ago/60)+'h';
+    circle.bindPopup(
+      `<strong>M${q.mag.toFixed(1)}</strong> — ${q.place}<br>Głęb.: ${(+q.depth).toFixed(0)} km · ${agoStr} temu`,
+      { className:'quake-popup', maxWidth: 260 }
+    );
+    _quakeLayer.addLayer(circle);
   });
-
-  // Region labels
-  drawMapLabels(ctx, W, H);
-
-    // Earthquakes
-  quakeDots = [];
-  data.sort((a,b) => a.mag - b.mag).forEach(q => {
-    const [x,y] = latLonToXY(q.lat, q.lon, W, H);
-    const r = quakeMagSize(q.mag);
-    const col = quakeMagColor(q.mag);
-
-    // Glow for large
-    if (q.mag >= 5) {
-      const grd = ctx.createRadialGradient(x,y,0,x,y,r*3);
-      grd.addColorStop(0, col+'60'); grd.addColorStop(1,col+'00');
-      ctx.fillStyle=grd; ctx.beginPath(); ctx.arc(x,y,r*3,0,Math.PI*2); ctx.fill();
-    }
-    ctx.fillStyle = col + 'cc';
-    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
-    ctx.strokeStyle = col; ctx.lineWidth = 0.5;
-    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.stroke();
-    quakeDots.push({x,y,r:r+4,...q});
-  });
+  _quakeLayer.addTo(_quakeMap);
 }
 
-// ═══════════════════════════════════════════════════════════
-//  EARTHQUAKES — USGS live API (GitHub Pages supports CORS)
-//  <script> tags use script-src, not connect-src → works on Neocities
-// ═══════════════════════════════════════════════════════════
 
-// USGS calls this function with the data
-function eqfeed_callback(data) {
-  const list    = document.getElementById('quakeList');
-  const countEl = document.getElementById('quakeCount');
-
-  // Remove loading script tag
-  const old = document.getElementById('usgs-jsonp');
-  if (old) old.remove();
-
-  if (!data || !Array.isArray(data.features)) {
-    if (list) list.innerHTML = '<div style="padding:20px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--text-dim);">Brak danych</div>';
-    return;
-  }
-
-  quakeData = data.features
-    .map(f => ({
-      mag:   +(f.properties.mag)       || 0,
-      place: f.properties.place        || '—',
-      time:  f.properties.time,
-      lat:   f.geometry.coordinates[1],
-      lon:   f.geometry.coordinates[0],
-      depth: f.geometry.coordinates[2] || 0,
-    }))
-    .filter(q => q.mag >= 1)
-    .slice(0, 200);
-
-  if (countEl) countEl.textContent = quakeData.length;
-  drawQuakeMap(quakeData);
-
-  const top = [...quakeData].filter(q => q.mag >= 3).sort((a,b) => b.mag - a.mag).slice(0, 30);
-  if (list) list.innerHTML = top.length
-    ? top.map(q => {
-        const ago    = Math.floor((Date.now() - q.time) / 60000);
-        const agoStr = ago < 60 ? ago + 'min temu' : ago < 1440 ? Math.floor(ago/60) + 'h temu' : Math.floor(ago/1440) + 'd temu';
-        const col    = quakeMagColor(q.mag);
-        return `<div class="quake-item">
-          <div class="quake-mag" style="color:${col}">M${q.mag.toFixed(1)}</div>
-          <div class="quake-place">${q.place}<br><span style="font-family:var(--mono);font-size:9px;color:var(--text-dim)">Głęb.: ${(+q.depth).toFixed(0)} km</span></div>
-          <div class="quake-time">${agoStr}</div>
-        </div>`;
-      }).join('')
-    : '<div style="padding:20px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--text-dim);">Brak trzęsień M3+ w ostatnich 24h</div>';
-
-  // Tooltip
-  const canvas = document.getElementById('quakeCanvas');
-  const tip    = document.getElementById('quakeTip');
-  if (canvas && tip) {
-    canvas.onmousemove = e => {
-      const rect = canvas.getBoundingClientRect();
-      const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
-      const my = (e.clientY - rect.top)  * (canvas.height / rect.height);
-      const hit = quakeDots.find(d => Math.hypot(mx - d.x, my - d.y) <= d.r + 6);
-      if (hit) {
-        tip.style.display = 'block';
-        tip.style.left    = (e.clientX - rect.left + 12) + 'px';
-        tip.style.top     = (e.clientY - rect.top  - 10) + 'px';
-        const ago = Math.floor((Date.now() - hit.time) / 60000);
-        tip.innerHTML = `<strong>M${hit.mag.toFixed(1)}</strong> — ${hit.place}<br>Głęb.: ${(+hit.depth).toFixed(0)} km | ${ago < 60 ? ago+'min' : ago < 1440 ? Math.floor(ago/60)+'h' : Math.floor(ago/1440)+'d'} temu`;
-      } else { tip.style.display = 'none'; }
-    };
-    canvas.onmouseleave = () => { tip.style.display = 'none'; };
-  }
-}
-
-// ═══════════════════════════════════════════════════════════
-//  AIR QUALITY — Open-Meteo / Copernicus CAMS (live data)
-// ═══════════════════════════════════════════════════════════
-function aqiColor(aqi) {
-  if (aqi <= 50)  return '#4cc97a';
-  if (aqi <= 100) return '#c9a84c';
-  if (aqi <= 150) return '#c9774c';
-  if (aqi <= 200) return '#c94c4c';
-  if (aqi <= 300) return '#8a4cc9';
-  return '#6b1a1a';
-}
-function aqiCategory(aqi) {
-  if (aqi <= 50)  return { name:'Dobra',                  advice:'Jakość powietrza jest satysfakcjonująca. Idealne warunki do aktywności na zewnątrz.' };
-  if (aqi <= 100) return { name:'Umiarkowana',            advice:'Jakość powietrza jest akceptowalna. Osoby wrażliwe mogą odczuwać dyskomfort.' };
-  if (aqi <= 150) return { name:'Niezdrowa dla wrażliwych', advice:'Osoby z chorobami płuc i dzieci powinny ograniczyć aktywność na zewnątrz.' };
-  if (aqi <= 200) return { name:'Niezdrowa',              advice:'Każdy może odczuwać skutki. Ogranicz wysiłek fizyczny na zewnątrz.' };
-  if (aqi <= 300) return { name:'Bardzo niezdrowa',       advice:'Alarm zdrowotny. Unikaj przebywania na zewnątrz. Zamknij okna.' };
-  return           { name:'Niebezpieczna',                advice:'Poważne zagrożenie zdrowia. Pozostań w domu z zamkniętymi oknami.' };
-}
-function drawAQIGauge(canvas, aqi) {
-  const ctx = canvas.getContext('2d');
-  const W = canvas.width, H = canvas.height, cx = W/2, cy = H/2, r = W/2 - 8;
-  ctx.clearRect(0,0,W,H);
-  ctx.beginPath(); ctx.arc(cx,cy,r,Math.PI*0.75,Math.PI*2.25,false);
-  ctx.strokeStyle='rgba(255,255,255,0.07)'; ctx.lineWidth=12; ctx.lineCap='round'; ctx.stroke();
-  const pct   = Math.min(1, aqi / 300);
-  const startA = Math.PI * 0.75;
-  const endA   = startA + pct * Math.PI * 1.5;
-  const grd    = ctx.createLinearGradient(0,0,W,H);
-  grd.addColorStop(0,'#4cc97a'); grd.addColorStop(0.4,'#c9a84c');
-  grd.addColorStop(0.7,'#c9774c'); grd.addColorStop(1,'#c94c4c');
-  ctx.beginPath(); ctx.arc(cx,cy,r,startA,endA,false);
-  ctx.strokeStyle=grd; ctx.lineWidth=12; ctx.lineCap='round'; ctx.stroke();
-}
-
-function calcEstimatedAQI(lat) {
-  // Deterministic model — same values every refresh for same time+location.
-  // Based on Eurostat / EEA / GIOS monthly averages for Central Europe.
-  // Values stabilise on each full hour so numbers don't jump on refresh.
-  const now     = new Date();
-  const month   = now.getMonth();   // 0-11
-  const hour    = now.getHours();   // 0-23
-
-  // Monthly mean PM2.5 µg/m³ — Central Europe (EEA data 2022-2024)
-  // Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec
-  const PM25_BASE = [38, 36, 28, 18, 14, 11, 10, 11, 14, 22, 33, 40];
-
-  // Diurnal pattern — rush hour peaks, clean overnight (deterministic, no random)
-  const HOUR_MULT = [
-    0.65,0.60,0.58,0.58,0.62,0.75, // 0-5  night/early
-    0.95,1.30,1.40,1.20,1.05,0.95, // 6-11 morning rush
-    0.90,0.88,0.88,0.92,1.10,1.35, // 12-17 afternoon / eve rush
-    1.40,1.30,1.15,1.00,0.85,0.72  // 18-23 evening settle
-  ];
-
-  // Latitude correction: further north = more heating = higher PM
-  const latMult = lat > 55 ? 1.20
-                : lat > 50 ? 1.10
-                : lat > 45 ? 1.00
-                : lat > 35 ? 0.88
-                : 0.75;
-
-  const pm25 = Math.round(PM25_BASE[month] * HOUR_MULT[hour] * latMult);
-  const pm10 = Math.round(pm25 * 1.55 + 4);
-
-  // NO2 — traffic-driven, peaks morning + evening, lower at night
-  const NO2_BASE = [22,20,18,14,12,10,9,10,12,16,20,23];
-  const no2 = Math.round(NO2_BASE[month] * HOUR_MULT[hour]);
-
-  // Ozone — photochemical, peaks afternoon, higher in summer
-  const O3_BASE = [28,30,36,46,54,60,62,58,48,38,30,26];
-  const O3_HOUR = [0.6,0.5,0.5,0.5,0.6,0.7,0.85,1.0,1.2,1.3,1.35,1.3,
-                   1.2,1.1,1.0,0.9,0.8,0.7,0.65,0.62,0.6,0.6,0.6,0.6];
-  const o3 = Math.round(O3_BASE[month] * O3_HOUR[hour]);
-
-  function pm25toAQI(pm) {
-    const bp=[[0,12,0,50],[12.1,35.4,51,100],[35.5,55.4,101,150],
-              [55.5,150.4,151,200],[150.5,250.4,201,300],[250.5,500.4,301,500]];
-    for(const [clo,chi,ilo,ihi] of bp)
-      if(pm>=clo&&pm<=chi) return Math.round(((ihi-ilo)/(chi-clo))*(pm-clo)+ilo);
-    return 500;
-  }
-
-  return { aqi: pm25toAQI(pm25), pm25, pm10, no2, o3 };
-}
-
-// Open-Meteo Air Quality API — free, CORS-ok, hourly data
-// Docs: https://open-meteo.com/en/docs/air-quality-api
-let _aqiFetched = false;
-
-function renderAQI(aqi, pm25, pm10, no2, o3, label) {
-  const el = document.getElementById('aqiContent') || document.getElementById('aqiBox');
-  if (!el) { console.warn('AQI element not found'); return; }
-
-  const col = aqiColor(aqi);
-  const cat = aqiCategory(aqi);
-  const now = new Date().toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'});
-
-  const parent = el.id === 'aqiContent' ? el.parentElement : el;
-  parent.style.setProperty('--aqi-color', col);
-
-  const html = `<div class="aqi-layout">
-    <div class="aqi-gauge-col">
-      <canvas id="aqiGaugeCanvas" width="140" height="140"></canvas>
-      <div style="text-align:center;margin-top:6px;">
-        <span style="font-family:var(--mono);font-size:2.2rem;font-weight:700;color:${col};display:block;line-height:1;">${aqi}</span>
-        <span style="font-family:var(--mono);font-size:8px;color:var(--text-dim);letter-spacing:.12em;">US AQI</span>
-      </div>
-      <div style="font-family:var(--sans);font-size:13px;font-weight:500;color:${col};text-align:center;margin-top:4px;">${cat.name}</div>
-      <button class="aqi-fetch-btn" style="margin-top:10px;font-size:9px;padding:6px 14px;" onclick="renderAQI_now()">↻ Odśwież</button>
-    </div>
-    <div class="aqi-info-col">
-      <div>
-        <div class="aqi-location">📍 ${label} — ${now}</div>
-        <div style="font-family:var(--mono);font-size:8px;color:rgba(255,255,255,.2);letter-spacing:.08em;margin-top:2px;">Model godzinowy EEA/GIOS — aktualizuje się co godzinę</div>
-      </div>
-      <div class="aqi-pollutants">
-        <div class="aqi-poll"><div class="aqi-poll-name">PM2.5</div><div class="aqi-poll-val">${pm25} <span style="font-size:9px;color:var(--text-dim)">µg/m³</span></div></div>
-        <div class="aqi-poll"><div class="aqi-poll-name">PM10</div><div class="aqi-poll-val">${pm10} <span style="font-size:9px;color:var(--text-dim)">µg/m³</span></div></div>
-        <div class="aqi-poll"><div class="aqi-poll-name">NO₂</div><div class="aqi-poll-val">${no2} <span style="font-size:9px;color:var(--text-dim)">µg/m³</span></div></div>
-        <div class="aqi-poll"><div class="aqi-poll-name">Ozon</div><div class="aqi-poll-val">${o3} <span style="font-size:9px;color:var(--text-dim)">µg/m³</span></div></div>
-      </div>
-      <div class="aqi-advice">${cat.advice}</div>
-    </div>
-  </div>`;
-
-  // Write to the inner div if exists, otherwise whole box
-  const target = document.getElementById('aqiContent') || el;
-  target.innerHTML = html;
-
-  setTimeout(() => {
-    const gc = document.getElementById('aqiGaugeCanvas');
-    if (gc) drawAQIGauge(gc, aqi);
-  }, 50);
-}
-
-function renderAQI_now() {
-  const lat = (typeof sunLat !== 'undefined' && sunLat) ? sunLat : 52.2297;
-  const est = calcEstimatedAQI(lat);
-  renderAQI(est.aqi, est.pm25, est.pm10, est.no2, est.o3, lat.toFixed(2) + '°');
-}
-
-function fetchAQI() { renderAQI_now(); }
-// ─── EARTHQUAKES — USGS live fetch ─────────────────────────
 async function fetchEarthquakes() {
   const list    = document.getElementById('quakeList');
   const countEl = document.getElementById('quakeCount');
@@ -6835,6 +6667,7 @@ async function fetchEarthquakes() {
       depth: f.geometry.coordinates[2] || 0,
     })).filter(q => q.mag >= 1).slice(0, 300);
 
+    initQuakeLeafletMap();
     if (countEl) countEl.textContent = quakeData.length + ' (24h live)';
     drawQuakeMap(quakeData);
 
@@ -7708,468 +7541,86 @@ function computeNextPass(track, userLat, userLon) {
 }
 
 // ── Draw ISS map ─────────────────────────────────────────
-function drawISSMap() {
-  const canvas = document.getElementById('issCanvas');
-  if (!canvas) return;
-  const W = canvas.parentElement.clientWidth || 800;
-  canvas.width = W;
-  canvas.height = 380;
-  const ctx = canvas.getContext('2d');
-  const H = 380;
+// ── ISS Leaflet Map ──────────────────────────────────────────
+let _issMap      = null;
+let _issMarker   = null;
+let _issLabel    = null;
+let _issTrack    = null;
+let _userMarker  = null;
 
-  // Background
-  ctx.fillStyle = '#020812'; ctx.fillRect(0,0,W,H);
+const CARTO_DARK = 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png';
+const CARTO_ATTR = '©OpenStreetMap ©CARTO';
 
-  // Grid
-  ctx.strokeStyle='rgba(255,255,255,0.04)'; ctx.lineWidth=1;
-  for(let lon=-180;lon<=180;lon+=30){
-    const x=(lon+180)/360*W;
-    ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();
-  }
-  for(let lat=-90;lat<=90;lat+=30){
-    const y=(90-lat)/180*H;
-    ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();
-  }
+function initISSLeafletMap() {
+  if (_issMap) return;
+  const el = document.getElementById('issLeafletMap');
+  if (!el || typeof L === 'undefined') return;
 
-  // Coastlines
-  ctx.strokeStyle='rgba(76,123,201,0.55)'; ctx.lineWidth=1;
-  WORLD_LINES.forEach(line=>{
-    ctx.beginPath();
-    line.forEach(([lat,lon],i)=>{
-      const x=(lon+180)/360*W, y=(90-lat)/180*H;
-      i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
-    });
-    ctx.stroke();
+  _issMap = L.map(el, {
+    center: [20, 0], zoom: 1,
+    zoomControl: true, attributionControl: false,
+    minZoom: 1, maxZoom: 5,
+    worldCopyJump: true,
   });
 
-  // Region labels
-  drawMapLabels(ctx, W, H);
+  L.tileLayer(CARTO_DARK, { subdomains:'abcd', maxZoom:19 }).addTo(_issMap);
 
-    // Night terminator (approximate solar declination)
-  const now   = new Date();
-  const dayOfYear = Math.floor((now-new Date(now.getFullYear(),0,0))/86400000);
-  const solarDecl = -23.45 * Math.cos(2*Math.PI*(dayOfYear+10)/365) * Math.PI/180;
-  const solarLon  = -((now.getUTCHours()*60+now.getUTCMinutes())/1440*360-180);
+  // ISS marker (custom div icon)
+  const issIcon = L.divIcon({
+    html: '<div class="iss-dot"></div><div class="iss-dot-label">ISS</div>',
+    className: '', iconSize: [14,28], iconAnchor: [7,7],
+  });
+  _issMarker = L.marker([0,0], { icon: issIcon, zIndexOffset: 1000 }).addTo(_issMap);
+}
 
-  ctx.fillStyle='rgba(0,0,0,0.35)';
-  ctx.beginPath();
-  for (let lon=-180;lon<=180;lon+=2) {
-    const termLat = Math.atan(-Math.cos((lon-solarLon)*Math.PI/180)/Math.tan(solarDecl))*180/Math.PI;
-    const x=(lon+180)/360*W, y=(90-termLat)/180*H;
-    lon===-180?ctx.moveTo(x,y):ctx.lineTo(x,y);
-  }
-  ctx.lineTo(W,H); ctx.lineTo(0,H); ctx.closePath(); ctx.fill();
+function drawISSMap(date) {
+  if (!_issMap) { initISSLeafletMap(); }
+  if (!_issMap || !issPos) return;
+
+  const lat = issPos.lat, lon = issPos.lon;
+
+  // Update ISS marker
+  _issMarker.setLatLng([lat, lon]);
 
   // Ground track
+  if (_issTrack) { _issMap.removeLayer(_issTrack); _issTrack = null; }
   if (issTrack.length > 1) {
-    ctx.strokeStyle='rgba(76,201,122,0.25)';ctx.lineWidth=1.5;ctx.setLineDash([4,6]);
-    ctx.beginPath();
-    issTrack.forEach((p,i)=>{
-      const x=(p.lon+180)/360*W, y=(90-p.lat)/180*H;
-      if(i===0||Math.abs(issTrack[i].lon-issTrack[i-1].lon)>180)ctx.moveTo(x,y);
-      else ctx.lineTo(x,y);
-    });
-    ctx.stroke();ctx.setLineDash([]);
-  }
-
-  // History trail
-  if (issHistory.length>1) {
-    for (let i=1;i<issHistory.length;i++) {
-      const a=issHistory[i-1],b=issHistory[i];
-      if(Math.abs(a.lon-b.lon)>90)continue;
-      const ax=(a.lon+180)/360*W,ay=(90-a.lat)/180*H;
-      const bx=(b.lon+180)/360*W,by=(90-b.lat)/180*H;
-      ctx.strokeStyle=`rgba(76,201,122,${0.15+(i/issHistory.length)*0.35})`;
-      ctx.lineWidth=2;
-      ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(bx,by);ctx.stroke();
+    // Handle antimeridian wrap: split at big lon jumps
+    const segments = [], cur = [[issTrack[0].lat, issTrack[0].lon]];
+    for (let i = 1; i < issTrack.length; i++) {
+      if (Math.abs(issTrack[i].lon - issTrack[i-1].lon) > 90) {
+        segments.push([...cur]);
+        cur.length = 0;
+      }
+      cur.push([issTrack[i].lat, issTrack[i].lon]);
     }
+    segments.push(cur);
+    _issTrack = L.layerGroup(
+      segments.map(seg => L.polyline(seg, {
+        color:'#4cc97a', weight:1.5, opacity:0.4, dashArray:'5,7'
+      }))
+    ).addTo(_issMap);
   }
 
   // User location
-  if (sunLat!=null) {
-    const ux=(sunLon+180)/360*W, uy=(90-sunLat)/180*H;
-    // Glow
-    const ug=ctx.createRadialGradient(ux,uy,0,ux,uy,16);
-    ug.addColorStop(0,'rgba(201,168,76,0.4)');ug.addColorStop(1,'rgba(201,168,76,0)');
-    ctx.fillStyle=ug;ctx.beginPath();ctx.arc(ux,uy,16,0,Math.PI*2);ctx.fill();
-    // Dot
-    ctx.fillStyle='#c9a84c';
-    ctx.beginPath();ctx.arc(ux,uy,5,0,Math.PI*2);ctx.fill();
-    ctx.strokeStyle='rgba(255,255,255,0.6)';ctx.lineWidth=1.5;
-    ctx.beginPath();ctx.arc(ux,uy,5,0,Math.PI*2);ctx.stroke();
-    // Coordinate label
-    ctx.font='8px Space Mono';
-    ctx.textAlign= ux > W*0.7 ? 'right' : 'left';
-    ctx.textBaseline='middle';
-    const latStr=(sunLat>=0?sunLat.toFixed(1)+'°N':Math.abs(sunLat).toFixed(1)+'°S');
-    const lonStr=(sunLon>=0?sunLon.toFixed(1)+'°E':Math.abs(sunLon).toFixed(1)+'°W');
-    ctx.fillStyle='rgba(201,168,76,0.9)';
-    const lx = ux > W*0.7 ? ux-8 : ux+8;
-    ctx.fillText('📍 '+latStr+' '+lonStr, lx, uy);
-  }
-
-  // ISS position
-  if (issPos) {
-    const ix=(issPos.lon+180)/360*W, iy=(90-issPos.lat)/180*H;
-
-    // Footprint circle
-    const footprintDeg = 2200/111;
-    const fR = footprintDeg/180*H*0.8;
-    ctx.strokeStyle='rgba(76,201,122,0.12)';ctx.lineWidth=1;
-    ctx.beginPath();ctx.arc(ix,iy,fR,0,Math.PI*2);ctx.stroke();
-
-    // Glow
-    const gl=ctx.createRadialGradient(ix,iy,0,ix,iy,22);
-    gl.addColorStop(0,'rgba(76,201,122,0.6)');
-    gl.addColorStop(1,'rgba(76,201,122,0)');
-    ctx.fillStyle=gl;ctx.beginPath();ctx.arc(ix,iy,22,0,Math.PI*2);ctx.fill();
-
-    // ISS dot
-    ctx.fillStyle='#4cc97a';
-    ctx.beginPath();ctx.arc(ix,iy,6,0,Math.PI*2);ctx.fill();
-    ctx.strokeStyle='#fff';ctx.lineWidth=1.5;
-    ctx.beginPath();ctx.arc(ix,iy,6,0,Math.PI*2);ctx.stroke();
-
-    // Label
-    ctx.font='bold 10px Space Mono';ctx.fillStyle='#4cc97a';
-    ctx.textAlign='center';ctx.fillText('ISS',ix,iy-12);
-  }
-
-  // Lat/lon labels
-  ctx.font='7px Space Mono';ctx.fillStyle='rgba(255,255,255,0.15)';ctx.textAlign='center';
-  for(let lon=-120;lon<=120;lon+=60){
-    ctx.fillText(lon+'°',(lon+180)/360*W,H-4);
-  }
-}
-
-// ── Fetch ISS position ──────────────────────────────────────
-// ── ISS Position — TLE from ivanstanojevic.me + orbital fallback ──
-let _issTLE  = null;   // cached TLE lines [l1, l2]
-let _tleTime = 0;      // when TLE was last fetched
-
-async function refreshTLE() {
-  if (_issTLE && Date.now() - _tleTime < 3600000) return _issTLE; // cache 1h
-
-  const apis = [
-    // 1. tle.ivanstanojevic.me — JSON, CORS-enabled
-    async () => {
-      const r = await fetch('https://tle.ivanstanojevic.me/api/tle/25544');
-      if (!r.ok) throw new Error(r.status);
-      const d = await r.json();
-      return [d.line1, d.line2];
-    },
-    // 2. Celestrak pub file via CORS proxy
-    async () => {
-      const target = encodeURIComponent('https://celestrak.org/pub/TLE/stations.txt');
-      const r = await fetch('https://corsproxy.io/?url=' + target);
-      if (!r.ok) throw new Error(r.status);
-      const txt = await r.text();
-      const lines = txt.split('\n').map(l=>l.trim()).filter(l=>l);
-      const i = lines.findIndex(l=>l.includes('ISS'));
-      if (i >= 0 && lines[i+1] && lines[i+2]) return [lines[i+1], lines[i+2]];
-      throw new Error('ISS not found in file');
-    },
-  ];
-
-  for (const fn of apis) {
-    try {
-      const tle = await Promise.race([fn(), new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),6000))]);
-      if (tle && tle[0] && tle[1] && tle[0].startsWith('1') && tle[1].startsWith('2')) {
-        _issTLE  = tle;
-        _tleTime = Date.now();
-        console.log('[ISS] TLE updated:', tle[0].substring(0,20));
-        return tle;
-      }
-    } catch(e) { console.warn('[ISS TLE]', e.message); }
-  }
-  return null; // use orbital fallback
-}
-
-function calcFromTLE(l1, l2) {
-  function d2r(d){ return d*Math.PI/180; }
-  function r2d(r){ return r*180/Math.PI; }
-
-  const incl  = d2r(parseFloat(l2.substring(8,16)));
-  const raan  = d2r(parseFloat(l2.substring(17,25)));
-  const ecc   = parseFloat('0.'+l2.substring(26,33).trim());
-  const argP  = d2r(parseFloat(l2.substring(34,42)));
-  const M0    = d2r(parseFloat(l2.substring(43,51)));
-  const mmRPD = parseFloat(l2.substring(52,63));
-
-  const epStr = l1.substring(18,32).trim();
-  const epYr  = parseInt(epStr.substring(0,2));
-  const epDOY = parseFloat(epStr.substring(2));
-  const fy    = epYr < 57 ? 2000+epYr : 1900+epYr;
-  const epoch = Date.UTC(fy,0,1) + (epDOY-1)*86400000;
-
-  const dtDays = (Date.now()-epoch)/86400000;
-  const M = ((M0 + mmRPD*2*Math.PI*dtDays) % (2*Math.PI) + 2*Math.PI) % (2*Math.PI);
-
-  let E = M;
-  for(let i=0;i<15;i++) E -= (E-ecc*Math.sin(E)-M)/(1-ecc*Math.cos(E));
-
-  const nu = 2*Math.atan2(Math.sqrt(1+ecc)*Math.sin(E/2), Math.sqrt(1-ecc)*Math.cos(E/2));
-  const nS = mmRPD*2*Math.PI/86400;
-  const a  = Math.cbrt(398600.4418/(nS*nS));
-  const r  = a*(1-ecc*Math.cos(E));
-  const xp = r*Math.cos(nu), yp = r*Math.sin(nu);
-
-  const cR=Math.cos(raan),sR=Math.sin(raan),cI=Math.cos(incl),sI=Math.sin(incl),cA=Math.cos(argP),sA=Math.sin(argP);
-  const xI=(cR*cA-sR*sA*cI)*xp+(-cR*sA-sR*cA*cI)*yp;
-  const yI=(sR*cA+cR*sA*cI)*xp+(-sR*sA+cR*cA*cI)*yp;
-  const zI=(sA*sI)*xp+(cA*sI)*yp;
-
-  const jd  = Date.now()/86400000+2440587.5;
-  const T   = (jd-2451545)/36525;
-  const gst = ((280.46061837+360.98564736629*(jd-2451545)+0.000387933*T*T)%360+360)%360*Math.PI/180;
-  const xE  =  xI*Math.cos(gst)+yI*Math.sin(gst);
-  const yE  = -xI*Math.sin(gst)+yI*Math.cos(gst);
-  const zE  =  zI;
-
-  const lon = r2d(Math.atan2(yE,xE));
-  const lat = r2d(Math.atan2(zE,Math.sqrt(xE*xE+yE*yE)));
-  const alt = r-6371;
-  const vel = nS*a*3600;
-  return { lat, lon, alt, vel };
-}
-
-function calcOrbital() {
-  // Fallback: approximate from stable orbital parameters
-  const now=Date.now(), d2r=d=>d*Math.PI/180, r2d=r=>r*180/Math.PI;
-  const INCL=d2r(51.6), MM=15.50, PERIOD=1440/MM;
-  const REF=new Date('2024-01-01T00:00:00Z').getTime();
-  const dtMin=(now-REF)/60000;
-  const phase=(dtMin%PERIOD)/PERIOD*2*Math.PI;
-  const raan=((-5.5*dtMin/1440)*Math.PI/180%(2*Math.PI)+2*Math.PI)%(2*Math.PI);
-  const cR=Math.cos(raan),sR=Math.sin(raan),cI=Math.cos(INCL);
-  const xECI=cR*Math.cos(phase)-sR*cI*Math.sin(phase);
-  const yECI=sR*Math.cos(phase)+cR*cI*Math.sin(phase);
-  const zECI=Math.sin(INCL)*Math.sin(phase);
-  const jd=now/86400000+2440587.5, T=(jd-2451545)/36525;
-  const gst=((280.46061837+360.98564736629*(jd-2451545)+0.000387933*T*T)%360+360)%360*Math.PI/180;
-  const xE=xECI*Math.cos(gst)+yECI*Math.sin(gst);
-  const yE=-xECI*Math.sin(gst)+yECI*Math.cos(gst);
-  return { lat:r2d(Math.atan2(zECI,Math.sqrt(xE*xE+yE*yE))), lon:r2d(Math.atan2(yE,xE)), alt:408, vel:27600 };
-}
-
-async function fetchISSPos() {
-  const tle = await refreshTLE();
-  if (tle) {
-    try {
-      const pos = calcFromTLE(tle[0], tle[1]);
-      if (!isNaN(pos.lat) && Math.abs(pos.lat)<=90) return pos;
-    } catch(e) { console.warn('[ISS] TLE calc error:', e.message); }
-  }
-  return calcOrbital(); // reliable fallback
-}
-
-// ── Fetch crew ──────────────────────────────────────────────
-async function fetchISSCrew() {
-  function tout(ms){ return new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),ms)); }
-
-  const FLAGS = {
-    American:'🇺🇸',Russian:'🇷🇺',German:'🇩🇪',French:'🇫🇷',Italian:'🇮🇹',
-    Japanese:'🇯🇵',Canadian:'🇨🇦',Danish:'🇩🇰',British:'🇬🇧',Chinese:'🇨🇳',
-    Emirati:'🇦🇪',Saudi:'🇸🇦',Belarusian:'🇧🇾',Kazakhstani:'🇰🇿',
-  };
-
-  // ── 1. Wikidata — query ISS (Q29053) directly for current crew ──
-  // More reliable than querying expeditions
-  const QUERIES = [
-    // Query A: ISS current occupants via P1302
-    `SELECT DISTINCT ?pLabel ?natLabel WHERE {
-      wd:Q29053 p:P1302 ?s .
-      ?s ps:P1302 ?p .
-      OPTIONAL { ?s pq:P582 ?end }
-      FILTER(!BOUND(?end) || ?end >= NOW())
-      OPTIONAL { ?s pq:P580 ?start . FILTER(?start <= NOW()) }
-      OPTIONAL { ?p wdt:P27 ?nat }
-      SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
-    } LIMIT 12`,
-
-    // Query B: Active ISS expeditions crew (fallback)
-    `SELECT DISTINCT ?astLabel ?natLabel WHERE {
-      ?exp wdt:P31 wd:Q1142527 ; wdt:P1302 ?ast .
-      ?exp p:P580 [psv:P580 [wikibase:timeValue ?s]] .
-      OPTIONAL { ?exp p:P582 [psv:P582 [wikibase:timeValue ?e]] }
-      FILTER(?s <= NOW() && (!BOUND(?e) || ?e >= NOW()))
-      OPTIONAL { ?ast wdt:P27 ?nat }
-      SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
-    } LIMIT 12`,
-  ];
-
-  for (const sparql of QUERIES) {
-    try {
-      const url = 'https://query.wikidata.org/sparql?format=json&query=' + encodeURIComponent(sparql);
-      const res = await Promise.race([
-        fetch(url, { headers: { Accept: 'application/sparql-results+json' } }),
-        tout(10000)
-      ]);
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const json = await res.json();
-
-      // Get name from first available label key
-      const rows = (json.results?.bindings || []).filter(r => {
-        const name = r.pLabel?.value || r.astLabel?.value || '';
-        // Filter out Q-IDs (unresolved) and obvious non-names
-        return name && !name.match(/^Q\d+$/) && name.length > 3;
+  if (sunLat != null) {
+    if (!_userMarker) {
+      const uIcon = L.divIcon({
+        html: '<div class="user-dot"></div>',
+        className: '', iconSize:[10,10], iconAnchor:[5,5],
       });
-
-      if (rows.length >= 3 && rows.length <= 12) {
-        console.log('[ISS crew] Wikidata OK:', rows.map(r => r.pLabel?.value || r.astLabel?.value));
-        return rows.map(r => ({
-          name:   r.pLabel?.value || r.astLabel?.value || '—',
-          agency: r.natLabel?.value || '—',
-          flag:   FLAGS[r.natLabel?.value] || '🧑‍🚀',
-          daysInSpace: null,
-          source: 'Wikidata',
-        }));
-      }
-    } catch(e) { console.warn('[ISS crew] Wikidata query failed:', e.message); }
-  }
-
-  // ── 2. SpaceDevs — expedition endpoint (more reliable than astronaut) ──
-  try {
-    // Get current active expedition first
-    const expRes = await Promise.race([
-      fetch('https://ll.thespacedevs.com/2.2.0/expedition/?limit=1&ordering=-start&end__isnull=true&format=json'),
-      tout(8000)
-    ]);
-    if (expRes.ok) {
-      const expData = await expRes.json();
-      const exp = expData.results?.[0];
-      if (exp) {
-        // Fetch crew of this expedition
-        const crewRes = await Promise.race([
-          fetch(`https://ll.thespacedevs.com/2.2.0/expedition/${exp.id}/?format=json`),
-          tout(8000)
-        ]);
-        if (crewRes.ok) {
-          const crewData = await crewRes.json();
-          const crew = (crewData.crew || []).slice(0, 10).map(c => ({
-            name:        c.astronaut?.name || '—',
-            agency:      c.astronaut?.agency?.abbrev || '—',
-            flag:        FLAGS[c.astronaut?.nationality] || '🧑‍🚀',
-            daysInSpace: null,
-            source:      'SpaceDevs',
-            photo:       c.astronaut?.profile_image_thumbnail || c.astronaut?.profile_image || null,
-          }));
-          if (crew.length >= 3) {
-            console.log('[ISS crew] SpaceDevs expedition:', crew.map(c=>c.name));
-            return crew;
-          }
-        }
-      }
+      _userMarker = L.marker([sunLat, sunLon], { icon: uIcon, title:'Twoja lokalizacja' }).addTo(_issMap);
+      _userMarker.bindTooltip(
+        `📍 ${sunLat.toFixed(2)}°${sunLat>=0?'N':'S'} ${Math.abs(sunLon).toFixed(2)}°${sunLon>=0?'E':'W'}`,
+        { permanent: false, direction: 'right', className: '' }
+      );
+    } else {
+      _userMarker.setLatLng([sunLat, sunLon]);
     }
-  } catch(e) { console.warn('[ISS crew] SpaceDevs expedition:', e.message); }
-
-  return []; // all failed
-}
-
-
-function issRenderCrew(crew) {
-  const grid = document.getElementById('issCrewGrid');
-  if (!grid) return;
-
-  if (!crew.length) {
-    grid.innerHTML = `<div style="padding:24px 20px;font-family:var(--mono);font-size:11px;color:var(--text-dim);line-height:1.8;">
-      ⚠️ Nie udało się pobrać danych załogi.<br>
-      <span style="opacity:.6;">Sprawdź połączenie z internetem i wróć za chwilę.</span>
-    </div>`;
-    return;
-  }
-
-  const hasStale = crew.some(c => c.maybeStale);
-  const now = new Date().toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'});
-
-  const warning = hasStale
-    ? `<div style="grid-column:1/-1;padding:10px 14px;background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);border-radius:10px;font-family:var(--mono);font-size:9px;color:var(--gold);letter-spacing:.1em;">
-        ⚠️ Dane z serwera developerskiego — mogą nie być w pełni aktualne.
-      </div>`
-    : `<div style="grid-column:1/-1;font-family:var(--mono);font-size:9px;color:rgba(255,255,255,.2);letter-spacing:.08em;">
-        ✓ Dane aktualne · ${crew[0]?.source || 'API'} · ${now}
-      </div>`;
-
-  grid.innerHTML = warning + crew.map((p, i) => {
-    const col = AGENCY_COLOR[p.agency] || '#4cc97a';
-    const daysStr = p.daysInSpace != null
-      ? `<div style="font-family:var(--mono);font-size:9px;color:var(--text-dim);margin-top:4px;">⏱ ${p.daysInSpace} dni w kosmosie</div>` : '';
-
-    // Photo — SpaceDevs gives URL directly; Wikipedia loaded async below
-    const photoBlock = p.photo
-      ? `<img class="iss-crew-photo" id="crew-photo-${i}"
-            src="${p.photo}" alt="${p.name}"
-            onerror="this.style.display='none'"
-         />`
-      : `<div class="iss-crew-photo-placeholder" id="crew-photo-${i}">${p.flag || '🧑‍🚀'}</div>`;
-
-    return `<div class="iss-crew-card" style="--cc:${col}">
-      ${photoBlock}
-      <div class="iss-crew-name">${p.name}</div>
-      <div class="iss-crew-agency">${p.agency}</div>
-      ${daysStr}
-      <div class="iss-crew-craft" style="margin-top:8px;">
-        <span class="live-dot" style="width:5px;height:5px;"></span> Na pokładzie ISS
-      </div>
-    </div>`;
-  }).join('');
-
-  // Async: fetch Wikipedia photos for any crew without photo
-  crew.forEach((p, i) => {
-    if (p.photo) return;
-    const url = 'https://en.wikipedia.org/w/api.php?action=query'
-      + '&generator=search&gsrsearch=' + encodeURIComponent(p.name)
-      + '&gsrlimit=1&prop=pageimages&format=json&pithumbsize=200&origin=*';
-    fetch(url)
-      .then(r => r.json())
-      .then(data => {
-        const pages = Object.values(data?.query?.pages || {});
-        const src   = pages[0]?.thumbnail?.source;
-        if (!src) return;
-        const el = document.getElementById('crew-photo-' + i);
-        if (!el) return;
-        const img = document.createElement('img');
-        img.className = 'iss-crew-photo';
-        img.src = src; img.alt = p.name;
-        img.onerror = () => img.remove();
-        el.parentNode.replaceChild(img, el);
-      }).catch(() => {});
-  });
-
-  const el = document.getElementById('iss_crew_n');
-  if (el) el.textContent = crew.length;
-
-  // For crew without photos (Wikidata), fetch from Wikipedia
-  if (crew.some(c => !c.photo)) {
-    crew.forEach((p, i) => {
-      if (p.photo) return;
-      const wpUrl = 'https://en.wikipedia.org/w/api.php?action=query'
-        + '&generator=search&gsrsearch=' + encodeURIComponent(p.name + ' astronaut')
-        + '&prop=pageimages&format=json&pithumbsize=150&origin=*';
-      fetch(wpUrl)
-        .then(r => r.json())
-        .then(data => {
-          const pages = Object.values(data.query?.pages || {});
-          const img   = pages[0]?.thumbnail?.source;
-          if (!img) return;
-          const cards = document.querySelectorAll('#issCrewGrid .iss-crew-card');
-          if (cards[i]) {
-            const ph = cards[i].querySelector('.iss-crew-photo-placeholder');
-            if (ph) {
-              const imgEl = document.createElement('img');
-              imgEl.className = 'iss-crew-photo';
-              imgEl.src = img; imgEl.alt = p.name;
-              imgEl.onerror = () => imgEl.remove();
-              ph.parentNode.insertBefore(imgEl, ph);
-              ph.style.display = 'none';
-            }
-          }
-        }).catch(() => {});
-    });
   }
 }
 
-// ── Main tick ───────────────────────────────────────────────
+
 function issUpdateHero() {
   if (!issPos) return;
   const totalMins = (Date.now() - ISS_LAUNCH) / 60000;
@@ -8495,6 +7946,157 @@ function drawMapLabels(ctx, W, H) {
     ctx.fillText(text, x, y);
   });
 }
+
+
+// ═══════════════════════════════════════════════════════════
+//  AIR QUALITY — functions
+// ═══════════════════════════════════════════════════════════
+function aqiColor(aqi) {
+  if (aqi <= 50)  return '#4cc97a';
+  if (aqi <= 100) return '#c9a84c';
+  if (aqi <= 150) return '#c9774c';
+  if (aqi <= 200) return '#c94c4c';
+  if (aqi <= 300) return '#8a4cc9';
+  return '#6b1a1a';
+}
+function aqiCategory(aqi) {
+  if (aqi <= 50)  return { name:'Dobra',                    advice:'Jakość powietrza jest satysfakcjonująca. Idealne warunki do aktywności na zewnątrz.' };
+  if (aqi <= 100) return { name:'Umiarkowana',              advice:'Jakość powietrza jest akceptowalna. Osoby wrażliwe mogą odczuwać dyskomfort.' };
+  if (aqi <= 150) return { name:'Niezdrowa dla wrażliwych', advice:'Osoby z chorobami płuc i dzieci powinny ograniczyć aktywność na zewnątrz.' };
+  if (aqi <= 200) return { name:'Niezdrowa',                advice:'Każdy może odczuwać skutki. Ogranicz wysiłek fizyczny na zewnątrz.' };
+  if (aqi <= 300) return { name:'Bardzo niezdrowa',         advice:'Alarm zdrowotny. Unikaj przebywania na zewnątrz. Zamknij okna.' };
+  return           { name:'Niebezpieczna',                  advice:'Poważne zagrożenie zdrowia. Pozostań w domu z zamkniętymi oknami.' };
+}
+function drawAQIGauge(canvas, aqi) {
+  const ctx=canvas.getContext('2d'), W=canvas.width, H=canvas.height, cx=W/2, cy=H/2, r=W/2-8;
+  ctx.clearRect(0,0,W,H);
+  ctx.beginPath(); ctx.arc(cx,cy,r,Math.PI*0.75,Math.PI*2.25,false);
+  ctx.strokeStyle='rgba(255,255,255,0.07)'; ctx.lineWidth=12; ctx.lineCap='round'; ctx.stroke();
+  const pct=Math.min(1,aqi/300);
+  const grd=ctx.createLinearGradient(0,0,W,H);
+  grd.addColorStop(0,'#4cc97a'); grd.addColorStop(0.4,'#c9a84c');
+  grd.addColorStop(0.7,'#c9774c'); grd.addColorStop(1,'#c94c4c');
+  ctx.beginPath(); ctx.arc(cx,cy,r,Math.PI*0.75,Math.PI*0.75+pct*Math.PI*1.5,false);
+  ctx.strokeStyle=grd; ctx.lineWidth=12; ctx.lineCap='round'; ctx.stroke();
+}
+function calcEstimatedAQI(lat) {
+  const month=new Date().getMonth(), hour=new Date().getHours();
+  const PM25_BASE=[38,36,28,18,14,11,10,11,14,22,33,40];
+  const HOUR_MULT=[0.65,0.60,0.58,0.58,0.62,0.75,0.95,1.30,1.40,1.20,1.05,0.95,
+                   0.90,0.88,0.88,0.92,1.10,1.35,1.40,1.30,1.15,1.00,0.85,0.72];
+  const latMult = lat>55?1.20:lat>50?1.10:lat>45?1.00:lat>35?0.88:0.75;
+  const pm25=Math.round(PM25_BASE[month]*HOUR_MULT[hour]*latMult);
+  const pm10=Math.round(pm25*1.55+4);
+  const NO2_BASE=[22,20,18,14,12,10,9,10,12,16,20,23];
+  const no2=Math.round(NO2_BASE[month]*HOUR_MULT[hour]);
+  const O3_BASE=[28,30,36,46,54,60,62,58,48,38,30,26];
+  const O3_H=[0.6,0.5,0.5,0.5,0.6,0.7,0.85,1.0,1.2,1.3,1.35,1.3,
+              1.2,1.1,1.0,0.9,0.8,0.7,0.65,0.62,0.6,0.6,0.6,0.6];
+  const o3=Math.round(O3_BASE[month]*O3_H[hour]);
+  function pm25toAQI(pm) {
+    const bp=[[0,12,0,50],[12.1,35.4,51,100],[35.5,55.4,101,150],
+              [55.5,150.4,151,200],[150.5,250.4,201,300],[250.5,500.4,301,500]];
+    for(const [clo,chi,ilo,ihi] of bp) if(pm>=clo&&pm<=chi) return Math.round(((ihi-ilo)/(chi-clo))*(pm-clo)+ilo);
+    return 500;
+  }
+  return { aqi:pm25toAQI(pm25), pm25, pm10, no2, o3 };
+}
+
+async function fetchAQI() {
+  const lat=(sunLat!=null)?sunLat:52.2297, lon=(sunLon!=null)?sunLon:21.0122;
+  const box=document.getElementById('aqiBox');
+  const contentEl=document.getElementById('aqiContent');
+  if(contentEl) contentEl.innerHTML='<div style="padding:20px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--text-dim);">⏳ Pobieranie...</div>';
+  try {
+    const url=`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&current=us_aqi,pm10,pm2_5,nitrogen_dioxide,ozone,european_aqi&timezone=auto`;
+    const res=await fetch(url);
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data=await res.json();
+    const cur=data.current;
+    if(!cur||cur.us_aqi==null) throw new Error('No data');
+    const aqi=Math.round(cur.us_aqi), col=aqiColor(aqi), cat=aqiCategory(aqi);
+    const pm25=cur.pm2_5!=null?(+cur.pm2_5).toFixed(1):null;
+    const pm10=cur.pm10!=null?(+cur.pm10).toFixed(1):null;
+    const no2=cur.nitrogen_dioxide!=null?(+cur.nitrogen_dioxide).toFixed(1):null;
+    const o3=cur.ozone!=null?(+cur.ozone).toFixed(1):null;
+    const now=new Date().toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'});
+    if(box) box.style.setProperty('--aqi-color',col);
+    const html=`<div class="aqi-layout">
+      <div class="aqi-gauge-col">
+        <canvas id="aqiGaugeCanvas" width="140" height="140"></canvas>
+        <div style="text-align:center;margin-top:6px;">
+          <span style="font-family:var(--mono);font-size:2.2rem;font-weight:700;color:${col};display:block;line-height:1;">${aqi}</span>
+          <span style="font-family:var(--mono);font-size:8px;color:var(--text-dim);letter-spacing:.12em;">US AQI</span>
+        </div>
+        <div style="font-family:var(--sans);font-size:13px;font-weight:500;color:${col};text-align:center;margin-top:4px;">${cat.name}</div>
+        <button class="aqi-fetch-btn" style="margin-top:10px;font-size:9px;padding:6px 14px;" onclick="fetchAQI()">↻ Odśwież</button>
+      </div>
+      <div class="aqi-info-col">
+        <div>
+          <div class="aqi-location">📍 ${lat.toFixed(3)}°, ${lon.toFixed(3)}° · ${now}</div>
+          <div style="font-family:var(--mono);font-size:8px;color:rgba(255,255,255,.2);margin-top:2px;">Open-Meteo / Copernicus CAMS</div>
+        </div>
+        <div class="aqi-pollutants">
+          ${pm25?`<div class="aqi-poll"><div class="aqi-poll-name">PM2.5</div><div class="aqi-poll-val">${pm25} <span style="font-size:9px;color:var(--text-dim)">µg/m³</span></div></div>`:''}
+          ${pm10?`<div class="aqi-poll"><div class="aqi-poll-name">PM10</div><div class="aqi-poll-val">${pm10} <span style="font-size:9px;color:var(--text-dim)">µg/m³</span></div></div>`:''}
+          ${no2?`<div class="aqi-poll"><div class="aqi-poll-name">NO₂</div><div class="aqi-poll-val">${no2} <span style="font-size:9px;color:var(--text-dim)">µg/m³</span></div></div>`:''}
+          ${o3?`<div class="aqi-poll"><div class="aqi-poll-name">Ozon</div><div class="aqi-poll-val">${o3} <span style="font-size:9px;color:var(--text-dim)">µg/m³</span></div></div>`:''}
+        </div>
+        <div class="aqi-advice">${cat.advice}</div>
+      </div>
+    </div>`;
+    if(contentEl) contentEl.innerHTML=html;
+    const gc=document.getElementById('aqiGaugeCanvas');
+    if(gc) setTimeout(()=>drawAQIGauge(gc,aqi),50);
+    setTimeout(fetchAQI,30*60000);
+  } catch(e) {
+    // fallback to estimate
+    renderAQI_now();
+  }
+}
+
+function renderAQI(aqi,pm25,pm10,no2,o3,label) {
+  const contentEl=document.getElementById('aqiContent')||document.getElementById('aqiBox');
+  if(!contentEl) return;
+  const col=aqiColor(aqi), cat=aqiCategory(aqi);
+  const now=new Date().toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'});
+  const parent=contentEl.id==='aqiContent'?contentEl.parentElement:contentEl;
+  if(parent) parent.style.setProperty('--aqi-color',col);
+  const html=`<div class="aqi-layout">
+    <div class="aqi-gauge-col">
+      <canvas id="aqiGaugeCanvas" width="140" height="140"></canvas>
+      <div style="text-align:center;margin-top:6px;">
+        <span style="font-family:var(--mono);font-size:2.2rem;font-weight:700;color:${col};display:block;line-height:1;">${aqi}</span>
+        <span style="font-family:var(--mono);font-size:8px;color:var(--text-dim);letter-spacing:.12em;">US AQI (est.)</span>
+      </div>
+      <div style="font-family:var(--sans);font-size:13px;font-weight:500;color:${col};text-align:center;margin-top:4px;">${cat.name}</div>
+      <button class="aqi-fetch-btn" style="margin-top:10px;font-size:9px;padding:6px 14px;" onclick="fetchAQI()">↻ Odśwież</button>
+    </div>
+    <div class="aqi-info-col">
+      <div>
+        <div class="aqi-location">📍 ${label} · ${now}</div>
+        <div style="font-family:var(--mono);font-size:8px;color:rgba(255,255,255,.2);margin-top:2px;">Model godzinowy EEA/GIOS</div>
+      </div>
+      <div class="aqi-pollutants">
+        <div class="aqi-poll"><div class="aqi-poll-name">PM2.5</div><div class="aqi-poll-val">${pm25} <span style="font-size:9px;color:var(--text-dim)">µg/m³</span></div></div>
+        <div class="aqi-poll"><div class="aqi-poll-name">PM10</div><div class="aqi-poll-val">${pm10} <span style="font-size:9px;color:var(--text-dim)">µg/m³</span></div></div>
+        <div class="aqi-poll"><div class="aqi-poll-name">NO₂</div><div class="aqi-poll-val">${no2} <span style="font-size:9px;color:var(--text-dim)">µg/m³</span></div></div>
+        <div class="aqi-poll"><div class="aqi-poll-name">Ozon</div><div class="aqi-poll-val">${o3} <span style="font-size:9px;color:var(--text-dim)">µg/m³</span></div></div>
+      </div>
+      <div class="aqi-advice">${cat.advice}</div>
+    </div>
+  </div>`;
+  contentEl.innerHTML=html;
+  const gc=document.getElementById('aqiGaugeCanvas');
+  if(gc) setTimeout(()=>drawAQIGauge(gc,aqi),50);
+}
+
+function renderAQI_now() {
+  const lat=(sunLat!=null)?sunLat:52.2297;
+  const est=calcEstimatedAQI(lat);
+  renderAQI(est.aqi,est.pm25,est.pm10,est.no2,est.o3,lat.toFixed(2)+'° · model sezonowy');
+}
+
 
 // ═══════════════════════════════════════════════════════════
 //  INIT
