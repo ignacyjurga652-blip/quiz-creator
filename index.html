@@ -8978,7 +8978,9 @@ const SIM_STARS=(function(){
 })();
 
 function simDraw(canvas){
-  const W=canvas.width, H=canvas.height, ctx=canvas.getContext('2d');
+  const W=canvas.width||1200, H=canvas.height||520;
+  const ctx=canvas.getContext('2d');
+  if(!ctx){return;}
   const cx=W/2, cy=H/2;
 
   // Background — clear and fill
@@ -9116,7 +9118,11 @@ function simRenderLoop(){
     }
   } else { simLastTs=null; }
 
-  simDraw(canvas);
+  try {
+    simDraw(canvas);
+  } catch(e) {
+    console.error('[Sim] Draw error:', e.message, e.stack);
+  }
   simUpdateHud();
 }
 
@@ -9223,8 +9229,20 @@ function initSimTab(){
     600
   )|0;
   const H=520;
-  canvas.width=W; canvas.height=H;
-  canvas.style.width=W+'px'; canvas.style.height=H+'px';
+  // Force fixed dimensions that we know will work
+  const FW = 1200, FH = 520;
+  canvas.width=FW; canvas.height=FH;
+  canvas.style.width='100%';
+  canvas.style.height=FH+'px';
+  canvas.style.display='block';
+
+  // Immediate test draw — if you see this, canvas works
+  {
+    const testCtx=canvas.getContext('2d');
+    testCtx.fillStyle='#040818'; testCtx.fillRect(0,0,FW,FH);
+    testCtx.fillStyle='rgba(255,255,255,0.3)'; testCtx.font='16px monospace';
+    testCtx.fillText('Inicjalizacja symulacji...', FW/2-100, FH/2);
+  }
 
   // Mouse controls
   canvas.addEventListener('mousedown', e=>{
