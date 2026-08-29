@@ -8981,7 +8981,8 @@ function simDraw(canvas){
   const W=canvas.width, H=canvas.height, ctx=canvas.getContext('2d');
   const cx=W/2, cy=H/2;
 
-  // Background
+  // Background — clear and fill
+  ctx.clearRect(0,0,W,H);
   const bg=ctx.createRadialGradient(cx,cy,0,cx,cy,Math.max(W,H)*0.8);
   bg.addColorStop(0,'#040818'); bg.addColorStop(1,'#010208');
   ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
@@ -9206,13 +9207,24 @@ function initSimTab(){
   if(simInited) return;
   simInited=true;
 
+  // Wait one frame so the tab's display:block takes effect
+  requestAnimationFrame(function(){
+  requestAnimationFrame(function(){
+
   const canvas=document.getElementById('simCanvas');
   if(!canvas){console.error('[Sim] No canvas');return;}
 
-  // Size canvas
-  const W=Math.max(canvas.parentElement.offsetWidth||800,400);
+  // Use window width as reliable fallback
+  const W=Math.max(
+    canvas.parentElement.clientWidth,
+    canvas.parentElement.offsetWidth,
+    document.querySelector('.container')?.clientWidth||0,
+    window.innerWidth*0.9,
+    600
+  )|0;
   const H=520;
   canvas.width=W; canvas.height=H;
+  canvas.style.width=W+'px'; canvas.style.height=H+'px';
 
   // Mouse controls
   canvas.addEventListener('mousedown', e=>{
@@ -9264,12 +9276,16 @@ function initSimTab(){
   // Resize
   window.addEventListener('resize',()=>{
     const c=document.getElementById('simCanvas');
-    if(!c||!document.getElementById('pane_sim')?.classList.contains('active'))return;
-    c.width=Math.max(c.parentElement.offsetWidth||800,400);
+    if(!c)return;
+    const W2=Math.max(window.innerWidth*0.9,600)|0;
+    c.width=W2; c.style.width=W2+'px';
   });
 
   // Start render
   simRenderLoop();
+
+  }); // end rAF 2
+  }); // end rAF 1
 }
 
 
