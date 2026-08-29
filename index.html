@@ -1801,7 +1801,106 @@ html.is-desktop .tab-nav-inner { gap: 4px; }
   .about-claude-box { padding:22px 20px; }
 }
 
+
+/* ═══════════════════════════════════════════════
+   3D SOLAR SYSTEM SIMULATION
+═══════════════════════════════════════════════ */
+.sim-wrap {
+  position: relative; background: #000; border-radius: 20px;
+  overflow: hidden; margin-bottom: 32px;
+  border: 1px solid rgba(76,123,201,0.2);
+}
+.sim-wrap::before {
+  content:''; position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,#c9774c,#c9a84c,#4c7bc9,#8a6cc9);
+  background-size:300% 100%; animation:apod-border 8s linear infinite; z-index:10;
+}
+#simCanvas { display:block; width:100%; height:520px; cursor:grab; }
+#simCanvas:active { cursor:grabbing; }
+
+.sim-ui {
+  position:absolute; bottom:0; left:0; right:0;
+  background:linear-gradient(transparent, rgba(0,0,0,0.85));
+  padding:20px 24px 20px; z-index:5;
+  display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+}
+.sim-planet-btns {
+  display:flex; gap:8px; flex-wrap:wrap; align-items:center;
+}
+.sim-planet-btn {
+  background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.15);
+  border-radius:99px; padding:5px 14px;
+  font-family:var(--mono); font-size:10px; letter-spacing:.1em;
+  color:var(--text-dim); cursor:pointer; transition:all .2s;
+  white-space:nowrap;
+}
+.sim-planet-btn:hover { border-color:rgba(255,255,255,0.35); color:var(--text); }
+.sim-planet-btn.active { color:#fff; border-color:var(--pb-color, #c9a84c);
+  background:rgba(var(--pb-rgb,201,168,76),0.15); }
+
+.sim-controls {
+  display:flex; align-items:center; gap:10px; margin-left:auto; flex-wrap:wrap;
+}
+.sim-speed-input {
+  background:#0a0d1e; border:1px solid rgba(255,255,255,0.15);
+  border-radius:8px; color:var(--text); font-family:var(--mono);
+  font-size:12px; padding:7px 12px; width:120px; outline:none;
+}
+.sim-speed-input:focus { border-color:rgba(76,123,201,0.5); }
+.sim-unit-sel {
+  background:#0a0d1e; border:1px solid rgba(255,255,255,0.15);
+  border-radius:8px; color:var(--text); font-family:var(--mono);
+  font-size:10px; padding:7px 10px; outline:none; cursor:pointer;
+}
+.sim-btn {
+  border-radius:10px; padding:8px 20px;
+  font-family:var(--mono); font-size:10px; letter-spacing:.12em;
+  cursor:pointer; transition:all .2s; text-transform:uppercase; border:1px solid;
+}
+.sim-btn-start {
+  background:rgba(76,201,122,0.15); border-color:rgba(76,201,122,0.4); color:#4cc97a;
+}
+.sim-btn-start:hover { background:rgba(76,201,122,0.25); }
+.sim-btn-reset {
+  background:rgba(255,255,255,0.05); border-color:rgba(255,255,255,0.15); color:var(--text-dim);
+}
+.sim-btn-reset:hover { border-color:rgba(255,255,255,0.3); color:var(--text); }
+
+.sim-hud {
+  position:absolute; top:16px; left:20px; z-index:5;
+  font-family:var(--mono); font-size:11px; line-height:2;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+}
+.sim-hud-row { color:rgba(255,255,255,0.5); }
+.sim-hud-row span { color:#fff; font-weight:700; }
+.sim-hud-arrived {
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  text-align:center; z-index:6; pointer-events:none;
+  font-family:var(--serif); font-size:2.2rem; color:#fff;
+  text-shadow:0 0 40px rgba(201,168,76,0.8);
+  animation: fadeInUp .6s ease;
+}
+@keyframes fadeInUp { from{opacity:0;transform:translate(-50%,-40%)} to{opacity:1;transform:translate(-50%,-50%)} }
+
+.sim-info { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:14px; }
+.sim-info-card {
+  background:var(--card); border:1px solid var(--card-border);
+  border-radius:14px; padding:18px 20px;
+}
+.sim-info-card h4 { font-family:var(--serif); font-size:1.1rem; font-weight:400; margin-bottom:10px; }
+.sim-info-card p { font-size:12px; color:var(--text-dim); line-height:1.7; }
+.sim-info-card strong { color:var(--text); }
+
+@media(max-width:680px){
+  #simCanvas { height:340px; }
+  .sim-ui { flex-direction:column; align-items:flex-start; gap:10px; }
+  .sim-controls { margin-left:0; }
+}
+
 </style>
+  <!-- Three.js for 3D Solar System Simulation -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <!-- Leaflet.js for ISS + Earthquake maps -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -1867,6 +1966,9 @@ html.is-desktop .tab-nav-inner { gap: 4px; }
     </button>
     <button class="tab-btn" id="tab_iss" onclick="switchTab('iss')">
       <span class="tab-icon">🛸</span> ISS Tracker
+    </button>
+    <button class="tab-btn" id="tab_sim" onclick="switchTab('sim')">
+      <span class="tab-icon">🚀</span> Symulacja 3D
     </button>
     <button class="tab-btn" id="tab_about" onclick="switchTab('about')">
       <span class="tab-icon">✨</span> O nas
@@ -3645,6 +3747,50 @@ html.is-desktop .tab-nav-inner { gap: 4px; }
       Hosting: GitHub Pages · Silnik: vanilla HTML/CSS/JS · Zero trackerów · Zero reklam
     </div>
 
+
+  <!-- ══════════════════════════════════════
+       3D SOLAR SYSTEM SIMULATION
+  ══════════════════════════════════════ -->
+  <div class="tab-pane" id="pane_sim">
+
+    <div class="section-head">
+      <h2 class="section-title">Symulacja 3D — Lot przez Układ Słoneczny</h2>
+      <p class="section-sub">// Wybierz planetę docelową, ustaw prędkość i ruszaj w drogę</p>
+    </div>
+
+    <div class="sim-wrap">
+      <canvas id="simCanvas"></canvas>
+
+      <!-- HUD -->
+      <div class="sim-hud" id="simHud">
+        <div class="sim-hud-row">Odległość od Słońca: <span id="simDistSun">—</span></div>
+        <div class="sim-hud-row">Odległość od celu: <span id="simDistTarget">—</span></div>
+        <div class="sim-hud-row">Prędkość: <span id="simSpeedHud">—</span></div>
+        <div class="sim-hud-row">Czas lotu: <span id="simTime">—</span></div>
+      </div>
+
+      <!-- Controls overlay -->
+      <div class="sim-ui">
+        <div class="sim-planet-btns" id="simPlanetBtns"></div>
+        <div class="sim-controls">
+          <input type="number" class="sim-speed-input" id="simSpeedInput" value="50000" min="1" placeholder="Prędkość">
+          <select class="sim-unit-sel" id="simUnitSel">
+            <option value="kmh">km/h</option>
+            <option value="kms">km/s</option>
+            <option value="mach">Mach</option>
+            <option value="pct_c">% c</option>
+          </select>
+          <button class="sim-btn sim-btn-start" id="simStartBtn" onclick="simToggle()">▶ Start</button>
+          <button class="sim-btn sim-btn-reset" onclick="simReset()">⟳ Reset</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Info cards -->
+    <div class="sim-info" id="simInfoCards"></div>
+
+  </div><!-- /pane_sim -->
+
   </div><!-- /pane_about -->
 
 </main>
@@ -3700,7 +3846,7 @@ const EVENTS_POOL=[
     fact:'<strong>Fakt:</strong> Całkowite, widoczne z Grenlandii, Islandii i Hiszpanii. Faza totalna: 2 min 18 s.'},
   {emoji:'☄️',title:'Maksimum Perseidów 2026',date:'2026-08-13T02:00:00',start:'2026-08-10T00:00:00',color:'#c9774c',
     fact:'<strong>Fakt:</strong> Perseidy to odłamki komety Swift-Tuttle. W szczycie do 100 meteorów na godzinę!'},
-  {emoji:'🌕',title:'Zaćmienie Księżyca 28 VIII 2026',date:'2026-08-28T10:32:00',start:'2026-01-01T00:00:00',color:'#6d9ee8',
+  {emoji:'🌕',title:'Zaćmienie Księżyca 28 VIII 2026',date:'2026-08-28T20:11:00',start:'2026-01-01T00:00:00',color:'#6d9ee8',
     fact:'<strong>Fakt:</strong> „Krwawy Księżyc" — czerwona poświata to efekt załamania światła słonecznego przez atmosferę Ziemi.'},
   {emoji:'🎃',title:'Halloween 2026',date:'2026-10-31T00:00:00',start:'2026-10-01T00:00:00',color:'#c9774c',
     fact:'<strong>Fakt:</strong> Halloween obchodzi ponad 2 miliardy ludzi. W USA wydaje się na niego ~12 mld dolarów rocznie.'},
@@ -3720,8 +3866,8 @@ const EVENTS_POOL=[
     fact:'<strong>Fakt:</strong> 14 lutego wysyłanych jest ok. 1 miliarda kart walentynkowych i 250 milionów różowych na całym świecie.'},
   {emoji:'🌑',title:'Największe Zaćmienie Słońca XXI w. — 2 VIII 2027',date:'2027-08-02T10:07:00',start:'2027-01-01T00:00:00',color:'#8a6cc9',
     fact:'<strong>Fakt:</strong> Faza totalna trwa aż 6 min 23 s — jedno z najdłuższych w XXI wieku! Widoczne z Maroka, Egiptu, Arabii.'},
-  {emoji:'🚀', title:'Artemis IV — Człowiek na Księżycu', date:'2028-09-01T00:00:00', start:'2022-11-16T00:00:00', color:'#c9774c',
-    fact: '<strong>Fakt:</strong> Pierwsza kobieta i kolejny mężczyzna na Księżycu — 55 lat po Apollo 17 w 1972 roku. <span style="color:#c94c4c">(UWAGA! NASA Aktualnie NIE podała dokładnej daty startu. Lot planowany jest na rok 2028 ale nie znamy dokładnej daty. To oznacza, że odliczanie będzie mogło się zmienić z czasem.)</span>'},
+  {emoji:'🚀',title:'Artemis III — Człowiek na Księżycu',date:'2027-09-01T00:00:00',start:'2022-11-16T00:00:00',color:'#c9774c',
+    fact:'<strong>Fakt:</strong> Pierwsza kobieta i kolejny mężczyzna na Księżycu — 55 lat po Apollo 17 w 1972 roku.'},
   {emoji:'☀️',title:'Przesilenie Letnie 2027',date:'2027-06-21T12:11:00',start:'2027-01-01T00:00:00',color:'#c9a84c',
     fact:'<strong>Fakt:</strong> Astronomiczny początek lata. Słońce osiąga najwyższy punkt na niebie.'},
   {emoji:'🎄',title:'Boże Narodzenie 2027',date:'2027-12-25T00:00:00',start:'2027-12-01T00:00:00',color:'#4cc97a',
@@ -3734,12 +3880,10 @@ const EVENTS_POOL=[
     fact:'<strong>Fakt:</strong> Wielka Brytania i Irlandia. Finał na Wembley — 90 000 widzów, historia futbolu.'},
   {emoji:'🏅',title:'Igrzyska Olimpijskie Los Angeles 2028',date:'2028-07-14T20:00:00',start:'2024-07-26T00:00:00',color:'#c94c4c',
     fact:'<strong>Fakt:</strong> LA gości Olimpiadę po raz trzeci: 1932, 1984, 2028 — jedyne takie miasto w historii.'},
-  {emoji:'🪐',title:'Opozycja Saturna 2026',date:'2026-10-04T19:00:00',start:'2026-01-01T00:00:00',color:'#d4b870',
+  {emoji:'🪐',title:'Opozycja Saturna 2026',date:'2026-09-21T00:00:00',start:'2026-01-01T00:00:00',color:'#d4b870',
     fact:'<strong>Fakt:</strong> W opozycji Saturn jest bliżej Ziemi i widoczny całą noc. Pierścienie widoczne przez lornetkę!'},
   {emoji:'🌍',title:'Dzień Ziemi 2026',date:'2026-04-22T00:00:00',start:'2026-01-01T00:00:00',color:'#4cc97a',
     fact:'<strong>Fakt:</strong> 22 kwietnia to Dzień Ziemi — obchodzony przez ponad miliard ludzi w 193 krajach od 1970 roku.'},
-  {emoji:'🚀',title:'Artemis III — Załogowy Lot Demonstracyjny Na Orbitę Okołoziemską',date:'2027-06-01T00:00:00',start:'2026-01-01T00:00:00',color:'#c94c4c',
-    fact:'<strong>Fakt:</strong> Randy Bresnik, poleci w kosmos z silnikiem rakietowym, który napędzał jego misję kosmiczną niemal 20 lat wcześniej. <span style="color:#c94c4c">(UWAGA! NASA Aktualnie NIE podała dokładnej daty startu. Lot planowany jest na około połowe roku 2027 ale nie znamy dokładnej daty. To oznacza, że odliczanie będzie mogło się zmienić z czasem.)</span>'},
 ];
 
 // ═══════════════════════════════════════════════════════════
@@ -6058,6 +6202,7 @@ function switchTab(tab) {
   if (tab === 'solar')   initSolarTab();
   if (tab === 'iss')     initISSTab();
   if (tab === 'about')   initAboutTab();
+  if (tab === 'sim')     initSimTab();
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -8783,6 +8928,483 @@ function initAboutTab() {
   }
   tick();
   _aboutInterval = setInterval(tick, 1000);
+}
+
+
+// ═══════════════════════════════════════════════════════════
+//  3D SOLAR SYSTEM SIMULATION — Three.js
+// ═══════════════════════════════════════════════════════════
+let simInited = false, simRunning = false;
+let simRenderer, simScene, simCamera, simControls;
+let simAnimId = null;
+let simCamPos = 0;        // current distance from Sun in km
+let simTargetDist = 0;    // target planet distance in km
+let simElapsed = 0;       // seconds elapsed
+let simLastTime = null;
+let simTarget = null;     // selected planet data
+let simPlanetMeshes = {};
+
+const SIM_PLANETS = [
+  { name:'Merkury', emoji:'🪨', color:0xa0a0b0, dist_km:57909000,  radius:2.4,  rings:false, tilt:0 },
+  { name:'Wenus',   emoji:'🌕', color:0xe8c850, dist_km:108200000, radius:5.8,  rings:false, tilt:177 },
+  { name:'Ziemia',  emoji:'🌍', color:0x4880f0, dist_km:149600000, radius:6.2,  rings:false, tilt:23.4 },
+  { name:'Mars',    emoji:'🔴', color:0xd04020, dist_km:227900000, radius:3.5,  rings:false, tilt:25 },
+  { name:'Jowisz',  emoji:'🟠', color:0xc08040, dist_km:778500000, radius:14,   rings:false, tilt:3 },
+  { name:'Saturn',  emoji:'🪐', color:0xd4b850, dist_km:1432000000,radius:12,   rings:true,  tilt:27 },
+  { name:'Uran',    emoji:'🔵', color:0x60d0d8, dist_km:2867000000,radius:9,    rings:false, tilt:98 },
+  { name:'Neptun',  emoji:'💙', color:0x4050d0, dist_km:4515000000,radius:8.5,  rings:false, tilt:28 },
+];
+
+// Convert real km to scene units (log scale)
+function kmToScene(km) {
+  if (km <= 0) return 0;
+  return Math.log10(km / 100000 + 1) * 120;
+}
+
+// Make a procedural planet texture
+function makePlanetTexture(planet) {
+  const size = 512;
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const ctx = c.getContext('2d');
+
+  const hex = '#' + planet.color.toString(16).padStart(6,'0');
+
+  if (planet.name === 'Ziemia') {
+    // Ocean base
+    ctx.fillStyle = '#1a4a8a'; ctx.fillRect(0,0,size,size);
+    // Continents (rough patches)
+    ctx.fillStyle = '#3a6b2a';
+    [[60,80,140,60],[200,60,100,80],[300,120,80,50],[80,180,160,70],
+     [350,200,100,60],[150,300,80,40],[260,280,120,50]].forEach(([x,y,w,h])=>{
+      ctx.beginPath(); ctx.ellipse(x,y,w,h,Math.random(),0,Math.PI*2); ctx.fill();
+    });
+    // Ice caps
+    ctx.fillStyle = 'rgba(220,240,255,0.7)';
+    ctx.fillRect(0,0,size,30); ctx.fillRect(0,size-30,size,30);
+    // Clouds
+    ctx.fillStyle = 'rgba(255,255,255,0.15)';
+    for(let i=0;i<20;i++){
+      ctx.beginPath();
+      ctx.ellipse(Math.random()*size, Math.random()*size, 40+Math.random()*60, 15+Math.random()*20, Math.random()*Math.PI, 0, Math.PI*2);
+      ctx.fill();
+    }
+  } else if (planet.name === 'Jowisz') {
+    // Bands
+    const colors = ['#c89060','#a07040','#d4a070','#886030','#c0a060','#806830'];
+    const bandH = size / colors.length;
+    colors.forEach((col,i)=>{ ctx.fillStyle=col; ctx.fillRect(0,i*bandH,size,bandH+1); });
+    // Great Red Spot
+    ctx.fillStyle = '#b84020';
+    ctx.beginPath(); ctx.ellipse(160,260,50,30,0,0,Math.PI*2); ctx.fill();
+    // Bands detail
+    for(let i=0;i<8;i++){
+      ctx.strokeStyle=`rgba(0,0,0,0.15)`; ctx.lineWidth=4;
+      ctx.beginPath(); ctx.moveTo(0,i*64+32); ctx.lineTo(size,i*64+32); ctx.stroke();
+    }
+  } else if (planet.name === 'Saturn') {
+    const colors = ['#d4b870','#b89850','#c8a860','#a08040','#c4a458'];
+    const bandH = size / colors.length;
+    colors.forEach((col,i)=>{ ctx.fillStyle=col; ctx.fillRect(0,i*bandH,size,bandH+1); });
+  } else if (planet.name === 'Mars') {
+    ctx.fillStyle = '#c0391a'; ctx.fillRect(0,0,size,size);
+    ctx.fillStyle = '#8b2500';
+    for(let i=0;i<12;i++){
+      ctx.beginPath();
+      ctx.ellipse(Math.random()*size,Math.random()*size,Math.random()*60+20,Math.random()*40+10,Math.random()*Math.PI,0,Math.PI*2);
+      ctx.fill();
+    }
+    ctx.fillStyle = 'rgba(220,200,180,0.3)';
+    ctx.fillRect(0,0,size,40); ctx.fillRect(0,size-40,size,40);
+  } else if (planet.name === 'Wenus') {
+    ctx.fillStyle = '#d4a830'; ctx.fillRect(0,0,size,size);
+    for(let i=0;i<15;i++){
+      ctx.fillStyle = `rgba(${200+Math.random()*30|0},${140+Math.random()*40|0},30,0.3)`;
+      ctx.beginPath();
+      ctx.ellipse(Math.random()*size,Math.random()*size,100,20,Math.random(),0,Math.PI*2);
+      ctx.fill();
+    }
+  } else if (planet.name === 'Merkury') {
+    ctx.fillStyle = '#8a8a9a'; ctx.fillRect(0,0,size,size);
+    ctx.fillStyle = '#6a6a7a';
+    for(let i=0;i<30;i++){
+      const r = 5+Math.random()*25;
+      ctx.beginPath();
+      ctx.arc(Math.random()*size,Math.random()*size,r,0,Math.PI*2); ctx.fill();
+    }
+  } else if (planet.name === 'Uran') {
+    const g=ctx.createLinearGradient(0,0,0,size);
+    g.addColorStop(0,'#50c0c8'); g.addColorStop(1,'#80e0e8');
+    ctx.fillStyle=g; ctx.fillRect(0,0,size,size);
+  } else if (planet.name === 'Neptun') {
+    const g=ctx.createLinearGradient(0,0,0,size);
+    g.addColorStop(0,'#2030b0'); g.addColorStop(0.5,'#3050d0'); g.addColorStop(1,'#1828a0');
+    ctx.fillStyle=g; ctx.fillRect(0,0,size,size);
+    ctx.fillStyle='rgba(100,140,255,0.3)';
+    ctx.beginPath(); ctx.ellipse(200,200,100,30,0.3,0,Math.PI*2); ctx.fill();
+  }
+
+  return new THREE.CanvasTexture(c);
+}
+
+// Make sun texture
+function makeSunTexture() {
+  const size = 512;
+  const c = document.createElement('canvas'); c.width = c.height = size;
+  const ctx = c.getContext('2d');
+  const g = ctx.createRadialGradient(size/2,size/2,0,size/2,size/2,size/2);
+  g.addColorStop(0,'#fff8d0'); g.addColorStop(0.3,'#ffdd40');
+  g.addColorStop(0.7,'#ff8800'); g.addColorStop(1,'#ff4400');
+  ctx.fillStyle=g; ctx.fillRect(0,0,size,size);
+  // Surface turbulence
+  for(let i=0;i<40;i++){
+    ctx.fillStyle=`rgba(255,${100+Math.random()*80|0},0,0.15)`;
+    ctx.beginPath();
+    ctx.arc(Math.random()*size,Math.random()*size,10+Math.random()*40,0,Math.PI*2); ctx.fill();
+  }
+  return new THREE.CanvasTexture(c);
+}
+
+function initSimTab() {
+  if (simInited) return;
+  simInited = true;
+
+  const canvas = document.getElementById('simCanvas');
+  if (!canvas || typeof THREE === 'undefined') return;
+
+  const W = canvas.parentElement.clientWidth || 900;
+  const H = 520;
+
+  // Renderer
+  simRenderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  simRenderer.setSize(W, H);
+  simRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  simRenderer.shadowMap.enabled = true;
+
+  // Scene
+  simScene = new THREE.Scene();
+  simScene.background = new THREE.Color(0x000005);
+
+  // Camera
+  simCamera = new THREE.PerspectiveCamera(60, W/H, 0.01, 100000);
+  simCamera.position.set(0, 15, 10);
+  simCamera.lookAt(0, 0, 200);
+
+  // Controls
+  if (typeof THREE.OrbitControls === 'undefined') {
+    console.error('[Sim] OrbitControls not loaded — using fallback mouse handler');
+    simControls = {
+      update: () => {},
+      target: new THREE.Vector3(),
+      enableDamping: false,
+    };
+    // Simple mouse drag fallback
+    let isDragging = false, prevMouse = {x:0, y:0};
+    canvas.addEventListener('mousedown', e => { isDragging = true; prevMouse = {x:e.clientX, y:e.clientY}; });
+    canvas.addEventListener('mouseup',   () => isDragging = false);
+    canvas.addEventListener('mousemove', e => {
+      if (!isDragging) return;
+      const dx = e.clientX - prevMouse.x, dy = e.clientY - prevMouse.y;
+      const spherical = new THREE.Spherical().setFromVector3(simCamera.position);
+      spherical.theta -= dx * 0.005;
+      spherical.phi   = Math.max(0.1, Math.min(Math.PI-0.1, spherical.phi + dy*0.005));
+      simCamera.position.setFromSpherical(spherical);
+      simCamera.lookAt(simControls.target);
+      prevMouse = {x:e.clientX, y:e.clientY};
+    });
+    canvas.addEventListener('wheel', e => {
+      const d = simCamera.position.length();
+      simCamera.position.multiplyScalar(1 + e.deltaY * 0.001);
+      simCamera.lookAt(simControls.target);
+    });
+  } else {
+    simControls = new THREE.OrbitControls(simCamera, simRenderer.domElement);
+    simControls.enableDamping = true;
+    simControls.dampingFactor = 0.05;
+    simControls.minDistance = 2;
+    simControls.maxDistance = 5000;
+  }
+
+  // Stars
+  const starGeo = new THREE.BufferGeometry();
+  const starVerts = [];
+  for(let i=0;i<6000;i++){
+    const r = 2000 + Math.random()*3000;
+    const theta = Math.random()*Math.PI*2;
+    const phi = Math.acos(2*Math.random()-1);
+    starVerts.push(r*Math.sin(phi)*Math.cos(theta), r*Math.sin(phi)*Math.sin(theta), r*Math.cos(phi));
+  }
+  starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starVerts, 3));
+  const starMat = new THREE.PointsMaterial({ color:0xffffff, size:1.2, sizeAttenuation:true });
+  simScene.add(new THREE.Points(starGeo, starMat));
+
+  // Sun
+  const sunTex = makeSunTexture();
+  const sun = new THREE.Mesh(
+    new THREE.SphereGeometry(8, 32, 32),
+    new THREE.MeshBasicMaterial({ map: sunTex })
+  );
+  simScene.add(sun);
+  // Sun glow
+  const sunLight = new THREE.PointLight(0xfff0c0, 3, 0);
+  simScene.add(sunLight);
+  const ambLight = new THREE.AmbientLight(0x111122, 0.5);
+  simScene.add(ambLight);
+
+  // Planets
+  SIM_PLANETS.forEach(p => {
+    const sceneD = kmToScene(p.dist_km);
+    const tex    = makePlanetTexture(p);
+
+    // Orbit ring
+    const orbitGeo = new THREE.BufferGeometry();
+    const orbitPts = [];
+    for(let i=0;i<=128;i++){
+      const a = (i/128)*Math.PI*2;
+      orbitPts.push(Math.cos(a)*sceneD, 0, Math.sin(a)*sceneD);
+    }
+    orbitGeo.setAttribute('position', new THREE.Float32BufferAttribute(orbitPts, 3));
+    const orbitLine = new THREE.Line(orbitGeo, new THREE.LineBasicMaterial({ color:0x223355, opacity:0.4, transparent:true }));
+    simScene.add(orbitLine);
+
+    // Planet mesh
+    const mesh = new THREE.Mesh(
+      new THREE.SphereGeometry(p.radius, 32, 32),
+      new THREE.MeshPhongMaterial({ map:tex, shininess: p.name==='Ziemia'?30:10 })
+    );
+    // Position planet on X axis for simulation
+    mesh.position.set(sceneD, 0, 0);
+    mesh.rotation.z = THREE.MathUtils.degToRad(p.tilt || 0);
+    simScene.add(mesh);
+    simPlanetMeshes[p.name] = mesh;
+
+    // Saturn rings
+    if (p.rings) {
+      const ringGeo = new THREE.RingGeometry(p.radius*1.4, p.radius*2.4, 64);
+      const ringMat = new THREE.MeshBasicMaterial({
+        color: 0xc8a840, side: THREE.DoubleSide, opacity: 0.7, transparent: true
+      });
+      const ring = new THREE.Mesh(ringGeo, ringMat);
+      ring.rotation.x = Math.PI/2.2;
+      ring.position.copy(mesh.position);
+      simScene.add(ring);
+    }
+
+    // Label sprite
+    const lc = document.createElement('canvas'); lc.width=256; lc.height=64;
+    const lctx = lc.getContext('2d');
+    lctx.font='bold 22px Space Mono, monospace';
+    lctx.fillStyle='rgba(255,255,255,0.8)';
+    lctx.fillText(p.emoji + ' ' + p.name, 10, 40);
+    const lTex = new THREE.CanvasTexture(lc);
+    const lSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map:lTex, transparent:true }));
+    lSprite.position.set(sceneD, p.radius+4, 0);
+    lSprite.scale.set(24, 6, 1);
+    simScene.add(lSprite);
+  });
+
+  // Build planet buttons
+  const btnWrap = document.getElementById('simPlanetBtns');
+  if (btnWrap) {
+    btnWrap.innerHTML = SIM_PLANETS.map((p,i) => {
+      const col = '#'+p.color.toString(16).padStart(6,'0');
+      return `<button class="sim-planet-btn" style="--pb-color:${col}"
+        onclick="simSelectPlanet(${i})">${p.emoji} ${p.name}</button>`;
+    }).join('');
+  }
+
+  // Select Earth by default
+  simSelectPlanet(2);
+
+  // Build info cards
+  simBuildInfoCards();
+
+  // Start render loop
+  simRenderLoop();
+
+  // Resize handler
+  window.addEventListener('resize', () => {
+    if (!simRenderer) return;
+    const W2 = canvas.parentElement.clientWidth || 900;
+    simRenderer.setSize(W2, H);
+    simCamera.aspect = W2/H;
+    simCamera.updateProjectionMatrix();
+  });
+}
+
+function simSelectPlanet(idx) {
+  simTarget = SIM_PLANETS[idx];
+  simTargetDist = simTarget.dist_km;
+  // Highlight button
+  document.querySelectorAll('.sim-planet-btn').forEach((b,i) => {
+    b.classList.toggle('active', i === idx);
+  });
+  // Update info
+  simBuildInfoCards();
+}
+
+function simGetSpeedKmh() {
+  const val  = parseFloat(document.getElementById('simSpeedInput').value) || 50000;
+  const unit = document.getElementById('simUnitSel').value;
+  if (unit === 'kms')   return val * 3600;
+  if (unit === 'mach')  return val * 1234.8;
+  if (unit === 'pct_c') return val / 100 * 1079252848;
+  return val; // km/h
+}
+
+function simFormatDist(km) {
+  if (km >= 1e9)  return (km/1e9).toFixed(2) + ' mld km';
+  if (km >= 1e6)  return (km/1e6).toFixed(1) + ' mln km';
+  if (km >= 1000) return (km/1000).toFixed(0) + ' tys. km';
+  return km.toFixed(0) + ' km';
+}
+
+function simFormatTime(sec) {
+  if (sec < 60) return sec.toFixed(0)+'s';
+  if (sec < 3600) return Math.floor(sec/60)+'min '+Math.floor(sec%60)+'s';
+  const h=Math.floor(sec/3600), m=Math.floor(sec%3600/60);
+  if (h < 24) return h+'h '+m+'min';
+  const d=Math.floor(h/24); return d+'d '+( h%24)+'h';
+}
+
+function simToggle() {
+  const btn = document.getElementById('simStartBtn');
+  if (!simTarget) { showToast('Wybierz najpierw planetę docelową!'); return; }
+  simRunning = !simRunning;
+  if (simRunning) {
+    simLastTime = null;
+    btn.textContent = '⏸ Pauza';
+    btn.style.background = 'rgba(201,168,76,0.15)';
+    btn.style.borderColor = 'rgba(201,168,76,0.5)';
+    btn.style.color = '#c9a84c';
+  } else {
+    btn.textContent = '▶ Start';
+    btn.style.background = 'rgba(76,201,122,0.15)';
+    btn.style.borderColor = 'rgba(76,201,122,0.4)';
+    btn.style.color = '#4cc97a';
+  }
+}
+
+function simReset() {
+  simRunning = false;
+  simCamPos  = 0;
+  simElapsed = 0;
+  simLastTime = null;
+  const btn = document.getElementById('simStartBtn');
+  if (btn) { btn.textContent='▶ Start'; btn.style.cssText=''; }
+  // Reset camera
+  if (simCamera) { simCamera.position.set(0,15,10); simCamera.lookAt(0,0,200); }
+  if (simControls) { simControls.target.set(0,0,0); simControls.update(); }
+  // Remove arrived message
+  const arr = document.getElementById('simArrived');
+  if (arr) arr.remove();
+  simUpdateHud();
+}
+
+function simRenderLoop(ts) {
+  simAnimId = requestAnimationFrame(simRenderLoop);
+  if (!simRenderer) return;
+
+  const now = performance.now();
+
+  // Rotate planets
+  Object.entries(simPlanetMeshes).forEach(([name, mesh]) => {
+    mesh.rotation.y += 0.003;
+  });
+
+  if (simRunning && simTarget) {
+    const dt = simLastTime ? (now - simLastTime)/1000 : 0;
+    simLastTime = now;
+    const speedKmh = simGetSpeedKmh();
+    const speedKms = speedKmh / 3600;
+    const moveSec  = speedKms * dt;
+    simCamPos = Math.min(simCamPos + moveSec, simTargetDist);
+    simElapsed += dt;
+
+    // Move camera along X axis (toward target planet)
+    const scenePos = kmToScene(simCamPos + 1);
+    const targetScenePos = kmToScene(simTargetDist);
+    simCamera.position.x = scenePos;
+    simCamera.position.y = 10 * Math.max(0, 1 - simCamPos/simTargetDist);
+    simCamera.position.z = 5 * Math.max(0, 1 - simCamPos/simTargetDist);
+    simControls.target.x = Math.min(scenePos + 50, targetScenePos);
+    simControls.target.y = 0;
+    simControls.target.z = 0;
+
+    // Check arrival
+    if (simCamPos >= simTargetDist * 0.99) {
+      simRunning = false;
+      const btn = document.getElementById('simStartBtn');
+      if (btn) { btn.textContent='▶ Start'; btn.style.cssText=''; }
+      if (!document.getElementById('simArrived')) {
+        const msg = document.createElement('div');
+        msg.id='simArrived'; msg.className='sim-hud-arrived';
+        msg.innerHTML=`Dotarłeś do planety<br><strong>${simTarget.emoji} ${simTarget.name}</strong><br>
+          <span style="font-size:1rem;font-family:var(--mono);color:rgba(255,255,255,0.6)">
+            Czas lotu: ${simFormatTime(simElapsed)}</span>`;
+        document.querySelector('.sim-wrap').appendChild(msg);
+        showToast(`🚀 Dotarłeś do ${simTarget.emoji} ${simTarget.name}!`);
+      }
+    }
+  } else if (simRunning) {
+    simLastTime = now;
+  }
+
+  simControls.update();
+  simUpdateHud();
+  simRenderer.render(simScene, simCamera);
+}
+
+function simUpdateHud() {
+  function sv(id,v){ const e=document.getElementById(id); if(e) e.textContent=v; }
+  const speedKmh = simGetSpeedKmh();
+  const speedKms = speedKmh/3600;
+  sv('simDistSun',    simFormatDist(simCamPos || 0));
+  sv('simDistTarget', simTarget ? simFormatDist(Math.max(0, simTargetDist - simCamPos)) : '—');
+  sv('simSpeedHud',   speedKmh >= 1000
+    ? (speedKmh/1000).toFixed(0)+' tys. km/h'
+    : speedKmh.toFixed(0)+' km/h');
+  sv('simTime',       simFormatTime(simElapsed));
+}
+
+function simBuildInfoCards() {
+  const wrap = document.getElementById('simInfoCards');
+  if (!wrap) return;
+  const p = simTarget;
+  if (!p) return;
+  const FACTS = {
+    'Merkury': 'Nie ma atmosfery — temperatura waha się od -180°C w nocy do +430°C w dzień.',
+    'Wenus':   'Najgorętsza planeta (465°C) mimo że Merkury jest bliżej Słońca. Gęsta atmosfera CO₂.',
+    'Ziemia':  'Jedyna znana planeta z życiem. 71% powierzchni pokrywa woda.',
+    'Mars':    'Ma największy wulkan w Układzie Słonecznym — Olympus Mons (27 km wysokości).',
+    'Jowisz':  'Masa Jowisza to 2.5× masa wszystkich pozostałych planet razem wziętych.',
+    'Saturn':  'Pierścienie Saturna mają 270 000 km szerokości ale tylko 1 km grubości.',
+    'Uran':    'Obraca się "na boku" — jego oś jest nachylona o 98° do płaszczyzny orbity.',
+    'Neptun':  'Najsilniejsze wiatry w Układzie Słonecznym — do 2100 km/h.',
+  };
+  const LIGHT = {
+    'Merkury':3.2,'Wenus':6,'Ziemia':8.3,'Mars':12.7,
+    'Jowisz':43,'Saturn':80,'Uran':160,'Neptun':252
+  };
+  const lightMin = LIGHT[p.name] || '?';
+  const days = (p.dist_km / (simGetSpeedKmh() * 24)).toFixed(1);
+  wrap.innerHTML = `
+    <div class="sim-info-card">
+      <h4>${p.emoji} ${p.name}</h4>
+      <p>${FACTS[p.name]||'Fascynująca planeta Układu Słonecznego.'}</p>
+    </div>
+    <div class="sim-info-card">
+      <h4>📏 Odległość</h4>
+      <p>Od Słońca: <strong>${simFormatDist(p.dist_km)}</strong><br>
+         Światło słoneczne dociera za: <strong>${lightMin} minut</strong><br>
+         Przy Twojej prędkości: <strong>~${days} dni</strong></p>
+    </div>
+    <div class="sim-info-card">
+      <h4>💡 Wskazówka</h4>
+      <p>Użyj <strong>myszy</strong> do obracania kamery 360°.<br>
+         <strong>Scroll</strong> = zoom.<br>
+         Podczas lotu możesz swobodnie rozglądać się — symulacja dalej leci!</p>
+    </div>`;
 }
 
 // ═══════════════════════════════════════════════════════════
