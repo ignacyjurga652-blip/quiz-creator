@@ -9067,170 +9067,190 @@ function makeSunTexture() {
 
 function initSimTab() {
   if (simInited) return;
-  simInited = true;
 
   const canvas = document.getElementById('simCanvas');
-  if (!canvas || typeof THREE === 'undefined') return;
+  if (!canvas) { console.error('[Sim] Canvas not found'); return; }
 
-  const W = canvas.parentElement.clientWidth || 900;
+  // Show loading message
+  const wrap = canvas.closest('.sim-wrap');
+  function showSimMsg(txt, color='rgba(255,255,255,0.5)') {
+    let el = document.getElementById('simMsg');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'simMsg';
+      el.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:var(--mono);font-size:13px;text-align:center;z-index:20;pointer-events:none;';
+      if (wrap) wrap.appendChild(el);
+    }
+    el.style.color = color;
+    el.innerHTML = txt;
+  }
+
+  // Check THREE
+  if (typeof THREE === 'undefined') {
+    showSimMsg('⏳ Ładowanie Three.js...<br><span style="font-size:10px;opacity:.5">Sprawdź połączenie z internetem</span>');
+    let tries = 0;
+    const wait = setInterval(() => {
+      tries++;
+      if (typeof THREE !== 'undefined') {
+        clearInterval(wait);
+        const el = document.getElementById('simMsg');
+        if (el) el.remove();
+        initSimTab();
+      } else if (tries > 20) {
+        clearInterval(wait);
+        showSimMsg('❌ Three.js nie załadowało się.<br><span style="font-size:10px;opacity:.5">Spróbuj odświeżyć stronę</span>', '#c94c4c');
+      }
+    }, 300);
+    return;
+  }
+
+  simInited = true;
+  showSimMsg('🚀 Inicjalizacja symulacji...');
+
+  // Give browser one frame to paint the tab
+  setTimeout(() => {
+    try {
+      _doInitSim(canvas, wrap);
+    } catch(err) {
+      console.error('[Sim] Init error:', err);
+      showSimMsg('❌ Błąd: ' + err.message, '#c94c4c');
+    }
+  }, 100);
+}
+
+function _doInitSim(canvas, wrap) {
+  const W = Math.max(canvas.offsetWidth, 600);
   const H = 520;
 
-  // Renderer
-  simRenderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-  simRenderer.setSize(W, H);
+  canvas.width  = W;
+  canvas.height = H;
+
+  // ── Renderer ──────────────────────────────────────────────
+  simRenderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+  simRenderer.setSize(W, H, false);
   simRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  simRenderer.shadowMap.enabled = true;
 
-  // Scene
+  // ── Scene ─────────────────────────────────────────────────
   simScene = new THREE.Scene();
-  simScene.background = new THREE.Color(0x000005);
+  simScene.background = new THREE.Color(0x000008);
 
-  // Camera
-  simCamera = new THREE.PerspectiveCamera(60, W/H, 0.01, 100000);
-  simCamera.position.set(0, 15, 10);
-  simCamera.lookAt(0, 0, 200);
+  // ── Camera ────────────────────────────────────────────────
+  simCamera = new THREE.PerspectiveCamera(60, W/H, 0.1, 50000);
+  simCamera.position.set(0, 20, 30);
+  simCamera.lookAt(0, 0, 0);
 
-  // Controls
-  if (typeof THREE.OrbitControls === 'undefined') {
-    console.error('[Sim] OrbitControls not loaded — using fallback mouse handler');
-    simControls = {
-      update: () => {},
-      target: new THREE.Vector3(),
-      enableDamping: false,
-    };
-    // Simple mouse drag fallback
-    let isDragging = false, prevMouse = {x:0, y:0};
-    canvas.addEventListener('mousedown', e => { isDragging = true; prevMouse = {x:e.clientX, y:e.clientY}; });
-    canvas.addEventListener('mouseup',   () => isDragging = false);
-    canvas.addEventListener('mousemove', e => {
-      if (!isDragging) return;
-      const dx = e.clientX - prevMouse.x, dy = e.clientY - prevMouse.y;
-      const spherical = new THREE.Spherical().setFromVector3(simCamera.position);
-      spherical.theta -= dx * 0.005;
-      spherical.phi   = Math.max(0.1, Math.min(Math.PI-0.1, spherical.phi + dy*0.005));
-      simCamera.position.setFromSpherical(spherical);
-      simCamera.lookAt(simControls.target);
-      prevMouse = {x:e.clientX, y:e.clientY};
-    });
-    canvas.addEventListener('wheel', e => {
-      const d = simCamera.position.length();
-      simCamera.position.multiplyScalar(1 + e.deltaY * 0.001);
-      simCamera.lookAt(simControls.target);
-    });
-  } else {
+  // ── Controls ──────────────────────────────────────────────
+  if (typeof THREE.OrbitControls !== 'undefined') {
     simControls = new THREE.OrbitControls(simCamera, simRenderer.domElement);
     simControls.enableDamping = true;
-    simControls.dampingFactor = 0.05;
-    simControls.minDistance = 2;
-    simControls.maxDistance = 5000;
+    simControls.dampingFactor = 0.06;
+    simControls.minDistance   = 5;
+    simControls.maxDistance   = 8000;
+  } else {
+    // Minimal fallback controls
+    simControls = { update:()=>{}, target: new THREE.Vector3() };
+    let drag = false, last = {x:0,y:0};
+    canvas.onmousedown = e => { drag=true; last={x:e.clientX,y:e.clientY}; };
+    canvas.onmouseup   = () => drag=false;
+    canvas.onmousemove = e => {
+      if (!drag) return;
+      const dx=e.clientX-last.x, dy=e.clientY-last.y;
+      simCamera.position.applyAxisAngle(new THREE.Vector3(0,1,0), -dx*0.005);
+      last={x:e.clientX,y:e.clientY};
+    };
+    canvas.onwheel = e => {
+      simCamera.position.multiplyScalar(1 + e.deltaY*0.001);
+    };
   }
 
-  // Stars
-  const starGeo = new THREE.BufferGeometry();
-  const starVerts = [];
-  for(let i=0;i<6000;i++){
-    const r = 2000 + Math.random()*3000;
-    const theta = Math.random()*Math.PI*2;
-    const phi = Math.acos(2*Math.random()-1);
-    starVerts.push(r*Math.sin(phi)*Math.cos(theta), r*Math.sin(phi)*Math.sin(theta), r*Math.cos(phi));
-  }
-  starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starVerts, 3));
-  const starMat = new THREE.PointsMaterial({ color:0xffffff, size:1.2, sizeAttenuation:true });
-  simScene.add(new THREE.Points(starGeo, starMat));
-
-  // Sun
-  const sunTex = makeSunTexture();
-  const sun = new THREE.Mesh(
-    new THREE.SphereGeometry(8, 32, 32),
-    new THREE.MeshBasicMaterial({ map: sunTex })
-  );
-  simScene.add(sun);
-  // Sun glow
-  const sunLight = new THREE.PointLight(0xfff0c0, 3, 0);
+  // ── Lights ────────────────────────────────────────────────
+  simScene.add(new THREE.AmbientLight(0x111133, 1));
+  const sunLight = new THREE.PointLight(0xfff5c0, 4, 0, 1);
+  sunLight.position.set(0,0,0);
   simScene.add(sunLight);
-  const ambLight = new THREE.AmbientLight(0x111122, 0.5);
-  simScene.add(ambLight);
 
-  // Planets
+  // ── Stars ─────────────────────────────────────────────────
+  const sv = [];
+  for (let i=0;i<5000;i++) {
+    const r=800+Math.random()*2000;
+    const th=Math.random()*Math.PI*2, ph=Math.acos(2*Math.random()-1);
+    sv.push(r*Math.sin(ph)*Math.cos(th), r*Math.sin(ph)*Math.sin(th), r*Math.cos(ph));
+  }
+  const sg = new THREE.BufferGeometry();
+  sg.setAttribute('position', new THREE.Float32BufferAttribute(sv,3));
+  simScene.add(new THREE.Points(sg, new THREE.PointsMaterial({color:0xffffff,size:1.5})));
+
+  // ── Sun ───────────────────────────────────────────────────
+  const sunMesh = new THREE.Mesh(
+    new THREE.SphereGeometry(8, 32, 32),
+    new THREE.MeshBasicMaterial({ color: 0xffcc30 })
+  );
+  simScene.add(sunMesh);
+
+  // ── Planets ───────────────────────────────────────────────
+  simPlanetMeshes = {};
+
   SIM_PLANETS.forEach(p => {
-    const sceneD = kmToScene(p.dist_km);
-    const tex    = makePlanetTexture(p);
-
-    // Orbit ring
-    const orbitGeo = new THREE.BufferGeometry();
-    const orbitPts = [];
-    for(let i=0;i<=128;i++){
-      const a = (i/128)*Math.PI*2;
-      orbitPts.push(Math.cos(a)*sceneD, 0, Math.sin(a)*sceneD);
-    }
-    orbitGeo.setAttribute('position', new THREE.Float32BufferAttribute(orbitPts, 3));
-    const orbitLine = new THREE.Line(orbitGeo, new THREE.LineBasicMaterial({ color:0x223355, opacity:0.4, transparent:true }));
-    simScene.add(orbitLine);
-
-    // Planet mesh
-    const mesh = new THREE.Mesh(
-      new THREE.SphereGeometry(p.radius, 32, 32),
-      new THREE.MeshPhongMaterial({ map:tex, shininess: p.name==='Ziemia'?30:10 })
-    );
-    // Position planet on X axis for simulation
-    mesh.position.set(sceneD, 0, 0);
-    mesh.rotation.z = THREE.MathUtils.degToRad(p.tilt || 0);
+    const d   = kmToScene(p.dist_km);
+    const tex = makePlanetTexture(p);
+    const mat = new THREE.MeshPhongMaterial({ map:tex, shininess:20 });
+    const mesh= new THREE.Mesh(new THREE.SphereGeometry(p.radius,32,32), mat);
+    mesh.position.set(d, 0, 0);
     simScene.add(mesh);
     simPlanetMeshes[p.name] = mesh;
 
+    // Orbit line
+    const op=[]; for(let i=0;i<=96;i++){const a=i/96*Math.PI*2; op.push(Math.cos(a)*d,0,Math.sin(a)*d);}
+    const og=new THREE.BufferGeometry(); og.setAttribute('position',new THREE.Float32BufferAttribute(op,3));
+    simScene.add(new THREE.Line(og, new THREE.LineBasicMaterial({color:0x1a2a44,transparent:true,opacity:0.5})));
+
     // Saturn rings
     if (p.rings) {
-      const ringGeo = new THREE.RingGeometry(p.radius*1.4, p.radius*2.4, 64);
-      const ringMat = new THREE.MeshBasicMaterial({
-        color: 0xc8a840, side: THREE.DoubleSide, opacity: 0.7, transparent: true
-      });
-      const ring = new THREE.Mesh(ringGeo, ringMat);
-      ring.rotation.x = Math.PI/2.2;
+      const rg = new THREE.RingGeometry(p.radius*1.4, p.radius*2.5, 64);
+      const rm = new THREE.MeshBasicMaterial({color:0xc8a840,side:THREE.DoubleSide,opacity:0.7,transparent:true});
+      const ring = new THREE.Mesh(rg,rm);
+      ring.rotation.x = Math.PI/2.3;
       ring.position.copy(mesh.position);
       simScene.add(ring);
     }
 
-    // Label sprite
-    const lc = document.createElement('canvas'); lc.width=256; lc.height=64;
-    const lctx = lc.getContext('2d');
-    lctx.font='bold 22px Space Mono, monospace';
-    lctx.fillStyle='rgba(255,255,255,0.8)';
-    lctx.fillText(p.emoji + ' ' + p.name, 10, 40);
-    const lTex = new THREE.CanvasTexture(lc);
-    const lSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map:lTex, transparent:true }));
-    lSprite.position.set(sceneD, p.radius+4, 0);
-    lSprite.scale.set(24, 6, 1);
-    simScene.add(lSprite);
+    // Label
+    const lc=document.createElement('canvas'); lc.width=256; lc.height=64;
+    const lx=lc.getContext('2d');
+    lx.font='bold 20px sans-serif'; lx.fillStyle='rgba(255,255,255,0.9)';
+    lx.fillText(p.emoji+' '+p.name, 8, 42);
+    const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(lc),transparent:true}));
+    sp.position.set(d, p.radius+5, 0);
+    sp.scale.set(20,5,1);
+    simScene.add(sp);
   });
 
-  // Build planet buttons
+  // ── Planet buttons ────────────────────────────────────────
   const btnWrap = document.getElementById('simPlanetBtns');
   if (btnWrap) {
-    btnWrap.innerHTML = SIM_PLANETS.map((p,i) => {
-      const col = '#'+p.color.toString(16).padStart(6,'0');
-      return `<button class="sim-planet-btn" style="--pb-color:${col}"
-        onclick="simSelectPlanet(${i})">${p.emoji} ${p.name}</button>`;
-    }).join('');
+    btnWrap.innerHTML = SIM_PLANETS.map((p,i) =>
+      `<button class="sim-planet-btn" onclick="simSelectPlanet(${i})">${p.emoji} ${p.name}</button>`
+    ).join('');
   }
+  simSelectPlanet(2); // Earth default
 
-  // Select Earth by default
-  simSelectPlanet(2);
+  // ── Remove loading message ─────────────────────────────────
+  const msg = document.getElementById('simMsg');
+  if (msg) msg.remove();
 
-  // Build info cards
-  simBuildInfoCards();
-
-  // Start render loop
-  simRenderLoop();
-
-  // Resize handler
+  // ── Resize ────────────────────────────────────────────────
   window.addEventListener('resize', () => {
-    if (!simRenderer) return;
-    const W2 = canvas.parentElement.clientWidth || 900;
-    simRenderer.setSize(W2, H);
+    if (!simRenderer || !canvas) return;
+    const W2 = Math.max(canvas.offsetWidth, 600);
+    simRenderer.setSize(W2, H, false);
     simCamera.aspect = W2/H;
     simCamera.updateProjectionMatrix();
   });
+
+  simBuildInfoCards();
+  simRenderLoop();
 }
+
 
 function simSelectPlanet(idx) {
   simTarget = SIM_PLANETS[idx];
