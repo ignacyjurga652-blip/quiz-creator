@@ -3864,8 +3864,8 @@ const EVENTS_POOL=[
     fact:'<strong>Fakt:</strong> 14 lutego wysyłanych jest ok. 1 miliarda kart walentynkowych i 250 milionów różowych na całym świecie.'},
   {emoji:'🌑',title:'Największe Zaćmienie Słońca XXI w. — 2 VIII 2027',date:'2027-08-02T10:07:00',start:'2027-01-01T00:00:00',color:'#8a6cc9',
     fact:'<strong>Fakt:</strong> Faza totalna trwa aż 6 min 23 s — jedno z najdłuższych w XXI wieku! Widoczne z Maroka, Egiptu, Arabii.'},
-  {emoji:'🚀',title:'Artemis III — Człowiek na Księżycu',date:'2027-09-01T00:00:00',start:'2022-11-16T00:00:00',color:'#c9774c',
-    fact:'<strong>Fakt:</strong> Pierwsza kobieta i kolejny mężczyzna na Księżycu — 55 lat po Apollo 17 w 1972 roku.'},
+  {emoji:'🚀', title:'Artemis IV — Człowiek na Księżycu', date:'2028-09-01T00:00:00', start:'2022-11-16T00:00:00', color:'#c9774c',
+    fact: '<strong>Fakt:</strong> Pierwsza kobieta i kolejny mężczyzna na Księżycu — 55 lat po Apollo 17 w 1972 roku. <span style="color:#c94c4c">(UWAGA! NASA Aktualnie NIE podała dokładnej daty startu. Lot planowany jest na rok 2028 ale nie znamy dokładnej daty. To oznacza, że odliczanie będzie mogło się zmienić z czasem.)</span>'},
   {emoji:'☀️',title:'Przesilenie Letnie 2027',date:'2027-06-21T12:11:00',start:'2027-01-01T00:00:00',color:'#c9a84c',
     fact:'<strong>Fakt:</strong> Astronomiczny początek lata. Słońce osiąga najwyższy punkt na niebie.'},
   {emoji:'🎄',title:'Boże Narodzenie 2027',date:'2027-12-25T00:00:00',start:'2027-12-01T00:00:00',color:'#4cc97a',
@@ -3882,6 +3882,8 @@ const EVENTS_POOL=[
     fact:'<strong>Fakt:</strong> W opozycji Saturn jest bliżej Ziemi i widoczny całą noc. Pierścienie widoczne przez lornetkę!'},
   {emoji:'🌍',title:'Dzień Ziemi 2026',date:'2026-04-22T00:00:00',start:'2026-01-01T00:00:00',color:'#4cc97a',
     fact:'<strong>Fakt:</strong> 22 kwietnia to Dzień Ziemi — obchodzony przez ponad miliard ludzi w 193 krajach od 1970 roku.'},
+  {emoji:'🚀', title:'Artemis III — Załogowy Lot Demonstracyjny Na Oribitę Okołoziemską', date:'2027-06-01T00:00:00', start:'2022-11-16T00:00:00', color:'#c94c4c',
+    fact: '<strong>Fakt:</strong> Artemis III będzie misją typu „multi-launch”, w której wezmą udział aż trzy różne statki kosmiczne wyprodukowane przez trzy różne podmioty. <span style="color:#c94c4c">(UWAGA! NASA Aktualnie NIE podała dokładnej daty startu. Lot planowany jest na około połowę roku 2027 ale nie znamy dokładnej daty. To oznacza, że odliczanie będzie mogło się zmienić z czasem.)</span>'},
 ];
 
 // ═══════════════════════════════════════════════════════════
@@ -8957,6 +8959,10 @@ function s3d(km){ return km<=0?0:Math.log10(km/10000000+1)*280; }
 
 // 3D → 2D perspective projection
 function project(x,y,z, cx,cy, fov=600) {
+  // Offset by camera position so ship stays centered
+  const camD = s3d(simCamPos);
+  x -= camD;  // translate all objects relative to ship position
+
   // Rotate by simRotY (around Y) then simRotX (around X)
   const cosY=Math.cos(simRotY), sinY=Math.sin(simRotY);
   const x1=x*cosY+z*sinY, z1=-x*sinY+z*cosY;
@@ -9080,16 +9086,19 @@ function simDraw(canvas){
     }});
   });
 
-  // Camera "ship" position indicator
-  if(simCamPos>0&&simTarget){
-    const camD=s3d(simCamPos);
-    const cp=project(camD,2,0,cx,cy);
-    if(cp){
-      ctx.fillStyle='rgba(76,201,122,0.8)';
-      ctx.beginPath(); ctx.arc(cp.sx,cp.sy,4,0,Math.PI*2); ctx.fill();
-      ctx.strokeStyle='#4cc97a'; ctx.lineWidth=1;
-      ctx.beginPath(); ctx.arc(cp.sx,cp.sy,8,0,Math.PI*2); ctx.stroke();
-    }
+  // Ship is always at center of screen (camera follows it)
+  if(simCamPos>0||simRunning){
+    // Draw crosshair at center
+    ctx.strokeStyle='rgba(76,201,122,0.5)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(cx-20,cy); ctx.lineTo(cx-8,cy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx+8,cy);  ctx.lineTo(cx+20,cy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx,cy-20); ctx.lineTo(cx,cy-8); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx,cy+8);  ctx.lineTo(cx,cy+20); ctx.stroke();
+    // Ship dot at center
+    ctx.fillStyle='rgba(76,201,122,0.9)';
+    ctx.beginPath(); ctx.arc(cx,cy,5,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='#4cc97a'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.arc(cx,cy,9,0,Math.PI*2); ctx.stroke();
   }
 
   // Draw depth-sorted objects
