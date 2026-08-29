@@ -3609,6 +3609,49 @@ html.is-desktop .tab-nav-inner { gap: 4px; }
   </div><!-- /pane_iss -->
 
   <!-- ══════════════════════════════════════
+       3D SOLAR SYSTEM SIMULATION
+  ══════════════════════════════════════ -->
+  <div class="tab-pane" id="pane_sim">
+
+    <div class="section-head">
+      <h2 class="section-title">Symulacja 3D — Lot przez Układ Słoneczny</h2>
+      <p class="section-sub">// Wybierz planetę docelową, ustaw prędkość i ruszaj w drogę</p>
+    </div>
+
+    <div class="sim-wrap">
+      <canvas id="simCanvas"></canvas>
+
+      <!-- HUD -->
+      <div class="sim-hud" id="simHud">
+        <div class="sim-hud-row">Odległość od Słońca: <span id="simDistSun">—</span></div>
+        <div class="sim-hud-row">Odległość od celu: <span id="simDistTarget">—</span></div>
+        <div class="sim-hud-row">Prędkość: <span id="simSpeedHud">—</span></div>
+        <div class="sim-hud-row">Czas lotu: <span id="simTime">—</span></div>
+      </div>
+
+      <!-- Controls overlay -->
+      <div class="sim-ui">
+        <div class="sim-planet-btns" id="simPlanetBtns"></div>
+        <div class="sim-controls">
+          <input type="number" class="sim-speed-input" id="simSpeedInput" value="50000" min="1" placeholder="Prędkość">
+          <select class="sim-unit-sel" id="simUnitSel">
+            <option value="kmh">km/h</option>
+            <option value="kms">km/s</option>
+            <option value="mach">Mach</option>
+            <option value="pct_c">% c</option>
+          </select>
+          <button class="sim-btn sim-btn-start" id="simStartBtn" onclick="simToggle()">▶ Start</button>
+          <button class="sim-btn sim-btn-reset" onclick="simReset()">⟳ Reset</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Info cards -->
+    <div class="sim-info" id="simInfoCards"></div>
+
+  </div><!-- /pane_sim -->
+
+  <!-- ══════════════════════════════════════
        O NAS TAB
   ══════════════════════════════════════ -->
   <div class="tab-pane" id="pane_about">
@@ -3745,48 +3788,6 @@ html.is-desktop .tab-nav-inner { gap: 4px; }
     </div>
 
 
-  <!-- ══════════════════════════════════════
-       3D SOLAR SYSTEM SIMULATION
-  ══════════════════════════════════════ -->
-  <div class="tab-pane" id="pane_sim">
-
-    <div class="section-head">
-      <h2 class="section-title">Symulacja 3D — Lot przez Układ Słoneczny</h2>
-      <p class="section-sub">// Wybierz planetę docelową, ustaw prędkość i ruszaj w drogę</p>
-    </div>
-
-    <div class="sim-wrap">
-      <canvas id="simCanvas"></canvas>
-
-      <!-- HUD -->
-      <div class="sim-hud" id="simHud">
-        <div class="sim-hud-row">Odległość od Słońca: <span id="simDistSun">—</span></div>
-        <div class="sim-hud-row">Odległość od celu: <span id="simDistTarget">—</span></div>
-        <div class="sim-hud-row">Prędkość: <span id="simSpeedHud">—</span></div>
-        <div class="sim-hud-row">Czas lotu: <span id="simTime">—</span></div>
-      </div>
-
-      <!-- Controls overlay -->
-      <div class="sim-ui">
-        <div class="sim-planet-btns" id="simPlanetBtns"></div>
-        <div class="sim-controls">
-          <input type="number" class="sim-speed-input" id="simSpeedInput" value="50000" min="1" placeholder="Prędkość">
-          <select class="sim-unit-sel" id="simUnitSel">
-            <option value="kmh">km/h</option>
-            <option value="kms">km/s</option>
-            <option value="mach">Mach</option>
-            <option value="pct_c">% c</option>
-          </select>
-          <button class="sim-btn sim-btn-start" id="simStartBtn" onclick="simToggle()">▶ Start</button>
-          <button class="sim-btn sim-btn-reset" onclick="simReset()">⟳ Reset</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Info cards -->
-    <div class="sim-info" id="simInfoCards"></div>
-
-  </div><!-- /pane_sim -->
 
   </div><!-- /pane_about -->
 
