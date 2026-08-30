@@ -9236,7 +9236,17 @@ function simRenderLoop(){
       simRunning=false; simLastTs=null;
       const btn=document.getElementById('simStartBtn');
       if(btn){btn.textContent='▶ Start';btn.style.cssText='';}
-      showToast(`🚀 Dotarłeś do ${simTarget.emoji} ${simTarget.name}! Czas: ${simFormatTime(simElapsed)}`);
+      // Add target planet to log as final entry (with ★ marker)
+      if(!simPassedPlanets.has('__target__')){
+        simPassedPlanets.add('__target__');
+        simFlightLog.unshift({
+          name:  '★ ' + simTarget.name,
+          color: simTarget.color,
+          time:  simFormatTime(simElapsed),
+          ts:    performance.now(),
+        });
+      }
+      showToast(`🚀 Dotarłeś do ${simTarget.name}! Czas: ${simFormatTime(simElapsed)}`);
     }
   } else { simLastTs=null; }
 
