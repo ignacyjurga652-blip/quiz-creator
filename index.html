@@ -8967,20 +8967,10 @@ const SIM_PLANETS=[
 // 1 AU (149,597,870 km) = 12 scene units
 // Neptune (30 AU) = ~361 units from Sun
 const AU_KM = 149597870;
-// Odległości planet w scene units — liniowe od Słońca, z minimalnymi odstępami
-// Tak żeby żadna nie wchodziła w Słońce i wszystkie były czytelnie rozmieszczone
-const PLANET_SCENE_DIST = {
-  'Merkury': 18,   // 0.387 AU
-  'Wenus':   30,   // 0.723 AU
-  'Ziemia':  42,   // 1.000 AU
-  'Mars':    58,   // 1.524 AU
-  'Jowisz':  140,  // 5.203 AU
-  'Saturn':  220,  // 9.537 AU
-  'Uran':    340,  // 19.19 AU
-  'Neptun':  480,  // 30.07 AU
-};
-// Proporcje zachowane (liniowe 1AU≈42 units), z min. odległością od Słońca=18
-function s3d(km){ return km<=0 ? 0 : km/AU_KM*42; }  // 1 AU = 42 scene units
+// Jednolita skala liniowa — 25 units/AU
+// Mercury: 9.7, Earth: 25, Jupiter: 130, Neptune: 752
+// Sun visual radius=3 → Mercury (9.7) wyraźnie poza Słońcem
+function s3d(km){ return km<=0 ? 0 : km/AU_KM*25; }
 
 // 3D → 2D perspective projection
 function project(x,y,z, cx,cy, fov=SIM_FOV) {
@@ -9036,7 +9026,7 @@ function simDraw(canvas){
 
   // Orbit rings — draw visible arcs, skip points behind camera
   SIM_PLANETS.forEach(p=>{
-    const d = Math.max(PLANET_SCENE_DIST[p.name]||s3d(p.dist_km), p.r+5);
+    const d = s3d(p.dist_km);
     ctx.beginPath();
     ctx.strokeStyle='rgba(70,100,165,0.45)'; ctx.lineWidth=1;
     let penDown=false;
@@ -9053,7 +9043,7 @@ function simDraw(canvas){
   // Sun
   const sunP=project(0,0,0,cx,cy);
   if(sunP){
-    const sr=4*sunP.scale*simZoom; // Sun visual radius — small so Mercury is outside
+    const sr=3*sunP.scale*simZoom; // Sun visual radius
     const sg=ctx.createRadialGradient(sunP.sx,sunP.sy,0,sunP.sx,sunP.sy,sr*2);
     sg.addColorStop(0,'rgba(255,240,100,0.4)'); sg.addColorStop(1,'rgba(255,120,0,0)');
     ctx.fillStyle=sg; ctx.beginPath(); ctx.arc(sunP.sx,sunP.sy,sr*2,0,Math.PI*2); ctx.fill();
@@ -9066,7 +9056,7 @@ function simDraw(canvas){
   // Planets
   SIM_PLANETS.forEach(p=>{
     // Use calibrated distance with minimum clearance from Sun
-    const d=Math.max(PLANET_SCENE_DIST[p.name]||s3d(p.dist_km), p.r+5);
+    const d=s3d(p.dist_km);
     const px=d, pz=0; // planets on X axis
     const pp=project(px,0,pz,cx,cy);
     if(!pp) return;
@@ -9225,8 +9215,10 @@ function simRenderLoop(){
     SIM_PLANETS.forEach(p=>{
       if(simPassedPlanets.has(p.name)) return;
       if(p.name===simTarget.name) return;
-      // Trigger when ship crosses planet's distance (prev < dist <= current)
-      if(simCamPosPrev < p.dist_km && simCamPos >= p.dist_km){
+      // Trigger when planet's dist falls within [prev, current] range
+      // Works even if ship jumps multiple planets in one frame (high speed)
+      const lo=Math.min(simCamPosPrev,simCamPos), hi=Math.max(simCamPosPrev,simCamPos);
+      if(lo < p.dist_km && p.dist_km <= hi){
         simPassedPlanets.add(p.name);
         simFlightLog.unshift({
           name:  p.name,
@@ -9248,12 +9240,8 @@ function simRenderLoop(){
     }
   } else { simLastTs=null; }
 
-  try {
-    simDraw(canvas);
-    simDrawLog(canvas);
-  } catch(e) {
-    console.error('[Sim] Draw error:', e.message, e.stack);
-  }
+  try { simDraw(canvas); } catch(e) { console.error('[Sim] Draw:', e.message); }
+  try { simDrawLog(canvas); } catch(e) { console.error('[Sim] Log:', e.message); }
   simUpdateHud();
 }
 
@@ -9288,7 +9276,8 @@ function simUpdateHud(){
 }
 
 function simSelectPlanet(idx){
-  simFlightLog=[]; simPassedPlanets=new Set(); simCamPosPrev=0;
+  // Only reset passed-planets set, NOT the log (log clears only on Reset)
+  simPassedPlanets=new Set(); simCamPosPrev=0;
   simTarget=SIM_PLANETS[idx];
   simTargetDist=simTarget.dist_km;
   document.querySelectorAll('.sim-planet-btn').forEach((b,i)=>b.classList.toggle('active',i===idx));
