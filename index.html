@@ -1897,6 +1897,7 @@ html.is-desktop .tab-nav-inner { gap: 4px; }
   .sim-controls { margin-left:0; }
 }
 
+
 </style>
   <!-- Leaflet.js for ISS + Earthquake maps -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -9270,11 +9271,12 @@ function simFormatDist(km){
   return km.toFixed(0)+' km';
 }
 function simFormatTime(s){
-  if(s<60)   return s.toFixed(0)+'s';
-  if(s<3600) return Math.floor(s/60)+'min '+Math.floor(s%60)+'s';
-  const h=Math.floor(s/3600),m=Math.floor(s%3600/60);
-  if(h<24) return h+'h '+m+'min';
-  return Math.floor(h/24)+'d '+( h%24)+'h';
+  if(s<1)    { const ms=Math.floor(s*1000); return '0s '+String(ms).padStart(3,'0')+'ms'; }
+  if(s<60)   { const ms=Math.floor((s%1)*1000); return Math.floor(s)+'s '+String(ms).padStart(3,'0')+'ms'; }
+  if(s<3600) { const ms=Math.floor((s%1)*1000); return Math.floor(s/60)+'min '+Math.floor(s%60)+'s '+String(ms).padStart(3,'0')+'ms'; }
+  const h=Math.floor(s/3600), m=Math.floor(s%3600/60), sec=Math.floor(s%60);
+  if(h<24) return h+'h '+m+'min '+sec+'s';
+  return Math.floor(h/24)+'d '+( h%24)+'h '+m+'min';
 }
 function simUpdateHud(){
   function sv(id,v){const e=document.getElementById(id);if(e)e.textContent=v;}
@@ -9295,6 +9297,10 @@ function simSelectPlanet(idx){
 }
 function simToggle(){
   if(!simTarget){showToast('Wybierz planetę docelową!');return;}
+  if(!simRunning){
+    simCamPos=0; simCamPosPrev=0;
+    simTargetDist=simTarget.dist_km;
+  }
   simRunning=!simRunning;
   const btn=document.getElementById('simStartBtn');
   if(btn){
@@ -9307,6 +9313,7 @@ function simToggle(){
 function simReset(){
   simRunning=false; simCamPos=0; simElapsed=0; simLastTs=null; simCamPosPrev=0;
   simFlightLog=[]; simPassedPlanets=new Set();
+  simCamDistTarget=0;
   const btn=document.getElementById('simStartBtn');
   if(btn){btn.textContent='▶ Start';btn.style.cssText='';}
 }
@@ -9438,6 +9445,7 @@ function initSimTab(){
   }); // end rAF 2
   }); // end rAF 1
 }
+
 
 
 // ═══════════════════════════════════════════════════════════
