@@ -8937,31 +8937,53 @@ function initAboutTab() {
 let simInited=false, simRunning=false;
 let simCamPos=0, simTargetDist=0, simElapsed=0, simLastTs=null;
 let simTarget=null, simRAF=null;
+let simFlightLog=[];      // [{name, time, color}]
+let simPassedPlanets=new Set();
+let simCamPosPrev=0;
 
 // Camera rotation state
 let simRotX=-0.25, simRotY=0.2;
 let simDrag=false, simDragLast={x:0,y:0};
-const simZoom=1.0; // fixed — no scroll zoom
+const simZoom=1.0;
+let simCamDist=0;       // current camera Z (smoothly animated)
+let simCamDistTarget=0; // target camera Z (set by scroll)
+const SIM_FOV=650;  // base field of view
 
 const SIM_PLANETS=[
-  {name:'Merkury',emoji:'🪨',color:'#a0a0b0',dist_km:57909000,  r:3,  rings:false},
-  {name:'Wenus',  emoji:'🌕',color:'#e8c850',dist_km:108200000, r:5,  rings:false},
-  {name:'Ziemia', emoji:'🌍',color:'#4880f0',dist_km:149600000, r:5.5,rings:false},
-  {name:'Mars',   emoji:'🔴',color:'#d04020',dist_km:227900000, r:4,  rings:false},
-  {name:'Jowisz', emoji:'🟠',color:'#c08040',dist_km:778500000, r:13, rings:false},
-  {name:'Saturn', emoji:'🪐',color:'#d4b850',dist_km:1432000000,r:11, rings:true },
-  {name:'Uran',   emoji:'🔵',color:'#60d0d8',dist_km:2867000000,r:8,  rings:false},
-  {name:'Neptun', emoji:'💙',color:'#4050d0',dist_km:4515000000,r:7.5,rings:false},
+  // Rozmiary: proporcjonalne do rzeczywistych (skala ~1 unit = 1000 km promienia)
+  // Mercury=2440km, Venus=6051km, Earth=6371km, Mars=3390km
+  // Jupiter=69911km, Saturn=58232km, Uranus=25362km, Neptune=24622km
+  {name:'Merkury',emoji:'🪨',color:'#a0a0b0',dist_km:57909000,   r:2.4,  r_km:2440,  rings:false},
+  {name:'Wenus',  emoji:'🌕',color:'#e8c850',dist_km:108200000,  r:3.6,  r_km:6051,  rings:false},
+  {name:'Ziemia', emoji:'🌍',color:'#4880f0',dist_km:149600000,  r:3.8,  r_km:6371,  rings:false},
+  {name:'Mars',   emoji:'🔴',color:'#d04020',dist_km:227900000,  r:2.8,  r_km:3390,  rings:false},
+  {name:'Jowisz', emoji:'🟠',color:'#c08040',dist_km:778500000,  r:9.5,  r_km:69911, rings:false},
+  {name:'Saturn', emoji:'🪐',color:'#d4b850',dist_km:1432000000, r:8.0,  r_km:58232, rings:true },
+  {name:'Uran',   emoji:'🔵',color:'#60d0d8',dist_km:2867000000, r:5.2,  r_km:25362, rings:false},
+  {name:'Neptun', emoji:'💙',color:'#4050d0',dist_km:4515000000, r:5.0,  r_km:24622, rings:false},
 ];
 
 // Scale distance to scene units — LINEAR (proportional to real distances)
 // 1 AU (149,597,870 km) = 12 scene units
 // Neptune (30 AU) = ~361 units from Sun
 const AU_KM = 149597870;
-function s3d(km){ return km<=0 ? 0 : km/AU_KM*12; }
+// Odległości planet w scene units — liniowe od Słońca, z minimalnymi odstępami
+// Tak żeby żadna nie wchodziła w Słońce i wszystkie były czytelnie rozmieszczone
+const PLANET_SCENE_DIST = {
+  'Merkury': 18,   // 0.387 AU
+  'Wenus':   30,   // 0.723 AU
+  'Ziemia':  42,   // 1.000 AU
+  'Mars':    58,   // 1.524 AU
+  'Jowisz':  140,  // 5.203 AU
+  'Saturn':  220,  // 9.537 AU
+  'Uran':    340,  // 19.19 AU
+  'Neptun':  480,  // 30.07 AU
+};
+// Proporcje zachowane (liniowe 1AU≈42 units), z min. odległością od Słońca=18
+function s3d(km){ return km<=0 ? 0 : km/AU_KM*42; }  // 1 AU = 42 scene units
 
 // 3D → 2D perspective projection
-function project(x,y,z, cx,cy, fov=800) {
+function project(x,y,z, cx,cy, fov=SIM_FOV) {
   // Offset by camera position so ship stays centered
   const camD = s3d(simCamPos);
   x -= camD;  // translate all objects relative to ship position
@@ -8971,9 +8993,9 @@ function project(x,y,z, cx,cy, fov=800) {
   const x1=x*cosY+z*sinY, z1=-x*sinY+z*cosY;
   const cosX=Math.cos(simRotX), sinX=Math.sin(simRotX);
   const y2=y*cosX-z1*sinX, z2=y*sinX+z1*cosX;
-  const depth=z2+fov*simZoom;
-  if(depth<=0) return null;
-  const scale=fov*simZoom/depth;
+  const depth=z2+fov+simCamDist;
+  if(depth<=20) return null;
+  const scale=fov/depth; // pure perspective — camera moves, scale preserved
   return {sx:cx+x1*scale, sy:cy+y2*scale, scale, depth};
 }
 
@@ -9012,30 +9034,29 @@ function simDraw(canvas){
   // Collect objects to depth-sort
   const objs=[];
 
-  // Orbit rings
+  // Orbit rings — draw visible arcs, skip points behind camera
   SIM_PLANETS.forEach(p=>{
-    const d=s3d(p.dist_km);
-    const pts=[]; let broken=false;
-    for(let i=0;i<=72;i++){
-      const a=i/72*Math.PI*2;
-      const pr=project(Math.cos(a)*d,0,Math.sin(a)*d,cx,cy);
-      if(!pr){broken=true;break;}
-      pts.push(pr);
+    const d = Math.max(PLANET_SCENE_DIST[p.name]||s3d(p.dist_km), p.r+5);
+    ctx.beginPath();
+    ctx.strokeStyle='rgba(70,100,165,0.45)'; ctx.lineWidth=1;
+    let penDown=false;
+    for(let i=0;i<=120;i++){
+      const a=i/120*Math.PI*2;
+      const pr=project(Math.cos(a)*d, 0, Math.sin(a)*d, cx, cy);
+      if(!pr){ penDown=false; continue; }
+      if(!penDown){ ctx.moveTo(pr.sx,pr.sy); penDown=true; }
+      else { ctx.lineTo(pr.sx,pr.sy); }
     }
-    if(!broken&&pts.length>2){
-      ctx.beginPath(); ctx.strokeStyle='rgba(60,90,140,0.4)'; ctx.lineWidth=1;
-      pts.forEach((pt,i)=>i===0?ctx.moveTo(pt.sx,pt.sy):ctx.lineTo(pt.sx,pt.sy));
-      ctx.closePath(); ctx.stroke();
-    }
+    ctx.stroke();
   });
 
   // Sun
   const sunP=project(0,0,0,cx,cy);
   if(sunP){
-    const sr=18*sunP.scale*simZoom;
-    const sg=ctx.createRadialGradient(sunP.sx,sunP.sy,0,sunP.sx,sunP.sy,sr*3);
-    sg.addColorStop(0,'rgba(255,240,100,0.5)'); sg.addColorStop(1,'rgba(255,120,0,0)');
-    ctx.fillStyle=sg; ctx.beginPath(); ctx.arc(sunP.sx,sunP.sy,sr*3,0,Math.PI*2); ctx.fill();
+    const sr=4*sunP.scale*simZoom; // Sun visual radius — small so Mercury is outside
+    const sg=ctx.createRadialGradient(sunP.sx,sunP.sy,0,sunP.sx,sunP.sy,sr*2);
+    sg.addColorStop(0,'rgba(255,240,100,0.4)'); sg.addColorStop(1,'rgba(255,120,0,0)');
+    ctx.fillStyle=sg; ctx.beginPath(); ctx.arc(sunP.sx,sunP.sy,sr*2,0,Math.PI*2); ctx.fill();
     const sg2=ctx.createRadialGradient(sunP.sx-sr*.2,sunP.sy-sr*.2,0,sunP.sx,sunP.sy,sr);
     sg2.addColorStop(0,'#fff8d0'); sg2.addColorStop(0.4,'#ffcc40'); sg2.addColorStop(1,'#ff6600');
     ctx.fillStyle=sg2; ctx.beginPath(); ctx.arc(sunP.sx,sunP.sy,sr,0,Math.PI*2); ctx.fill();
@@ -9044,18 +9065,20 @@ function simDraw(canvas){
 
   // Planets
   SIM_PLANETS.forEach(p=>{
-    const d=s3d(p.dist_km);
+    // Use calibrated distance with minimum clearance from Sun
+    const d=Math.max(PLANET_SCENE_DIST[p.name]||s3d(p.dist_km), p.r+5);
     const px=d, pz=0; // planets on X axis
     const pp=project(px,0,pz,cx,cy);
     if(!pp) return;
 
-    const pr=Math.max(2, p.r*pp.scale*simZoom*1.5);
+    const pr=Math.max(1.5, Math.min(60, p.r*pp.scale*simZoom)); // max 60px
 
     objs.push({depth:pp.depth, draw:()=>{
-      // Glow
-      const gl=ctx.createRadialGradient(pp.sx,pp.sy,0,pp.sx,pp.sy,pr*2.5);
-      gl.addColorStop(0,p.color+'60'); gl.addColorStop(1,p.color+'00');
-      ctx.fillStyle=gl; ctx.beginPath(); ctx.arc(pp.sx,pp.sy,pr*2.5,0,Math.PI*2); ctx.fill();
+      // Glow — proportional to planet size
+      const glowR = pr * (p.r_km > 30000 ? 1.8 : 1.4); // gas giants bigger glow
+      const gl=ctx.createRadialGradient(pp.sx,pp.sy,0,pp.sx,pp.sy,glowR);
+      gl.addColorStop(0,p.color+'50'); gl.addColorStop(1,p.color+'00');
+      ctx.fillStyle=gl; ctx.beginPath(); ctx.arc(pp.sx,pp.sy,glowR,0,Math.PI*2); ctx.fill();
 
       // Planet body
       const pg=ctx.createRadialGradient(pp.sx-pr*.3,pp.sy-pr*.3,0,pp.sx,pp.sy,pr);
@@ -9073,18 +9096,35 @@ function simDraw(canvas){
         ctx.restore();
       }
 
-      // Label
-      if(pr>3){
-        ctx.font=`${Math.max(9,12*pp.scale*simZoom)}px Space Mono`;
-        ctx.fillStyle=p.color; ctx.textAlign='center'; ctx.textBaseline='top';
-        ctx.fillText(p.name, pp.sx, pp.sy+pr+4);
+      // Label — scales with camera distance (perspective)
+      const fontSize = Math.min(14, Math.round(9 * pp.scale)); // max 14px, tighter scale
+      if(fontSize >= 7){ // only show when readable
+        const labelAlpha = Math.min(1, Math.max(0, (fontSize-6)/6));
+        ctx.save();
+        ctx.globalAlpha = labelAlpha;
+        ctx.font = `${Math.max(5, fontSize)}px Space Mono`;
+        ctx.fillStyle = p.color;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        // Emoji + name
+        const label = p.name;
+        ctx.fillText(label, pp.sx, pp.sy + pr + 4);
+        ctx.restore();
       }
 
-      // Distance if in flight
+      // Distance if in flight — also scales
       if(simRunning&&simTarget&&simTarget.name===p.name){
         const distLeft=Math.max(0,simTargetDist-simCamPos);
-        ctx.font='9px Space Mono'; ctx.fillStyle='rgba(255,255,255,0.5)'; ctx.textAlign='center';
-        ctx.fillText(simFormatDist(distLeft)+' do celu', pp.sx, pp.sy+pr+18);
+        const df = Math.min(13, Math.round(11*pp.scale));
+        if(df>=5){
+          ctx.save();
+          ctx.globalAlpha=Math.min(1,(df-4)/8);
+          ctx.font=`${Math.max(5,df)}px Space Mono`;
+          ctx.fillStyle='rgba(255,255,255,0.7)';
+          ctx.textAlign='center';
+          ctx.fillText('▶ '+simFormatDist(distLeft), pp.sx, pp.sy+pr+fontSize+8);
+          ctx.restore();
+        }
       }
     }});
   });
@@ -9110,10 +9150,68 @@ function simDraw(canvas){
   ctx.globalAlpha=1;
 }
 
+
+function simDrawLog(canvas){
+  if(!simFlightLog.length) return;
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width, pad=16, lineH=26;
+  const x=W-pad, y=20;
+  const now=performance.now();
+
+  ctx.save();
+
+  // Header
+  ctx.font='9px Space Mono';
+  ctx.fillStyle='rgba(255,255,255,0.3)';
+  ctx.textAlign='right';
+  ctx.fillText('DZIENNIK LOTU', x, y);
+
+  simFlightLog.forEach((entry,i)=>{
+    const age=(now-(entry.ts||now))/1000; // seconds since entry added
+    const ANIM=0.5; // animation duration seconds
+
+    // Slide-in from right + fade-in
+    const progress=Math.min(1, age/ANIM);
+    const eased=1-Math.pow(1-progress,3); // ease-out cubic
+    const slideX=(1-eased)*40;            // slides 40px from right
+    const alpha=eased;
+
+    ctx.save();
+    ctx.globalAlpha=alpha;
+    ctx.translate(slideX, 0);
+
+    const ey=y+20+i*lineH;
+
+    // Colored dot
+    ctx.fillStyle=entry.color;
+    ctx.beginPath();
+    ctx.arc(x-2, ey-5, 4.5, 0, Math.PI*2);
+    ctx.fill();
+
+    // Planet name
+    ctx.font='bold 12px Space Mono';
+    ctx.fillStyle=entry.color;
+    ctx.textAlign='right';
+    ctx.fillText(entry.name, x-13, ey);
+
+    // Time — slightly larger
+    ctx.font='11px Space Mono';
+    ctx.fillStyle='rgba(201,168,76,0.85)';
+    ctx.fillText('@ '+entry.time, x-13, ey+14);
+
+    ctx.restore();
+  });
+
+  ctx.restore();
+}
+
 function simRenderLoop(){
   simRAF=requestAnimationFrame(simRenderLoop);
   const canvas=document.getElementById('simCanvas');
   if(!canvas) return;
+
+  // Smooth camera zoom — lerp toward target
+  simCamDist += (simCamDistTarget - simCamDist) * 0.10;
 
   if(simRunning&&simTarget){
     const now=performance.now();
@@ -9122,6 +9220,25 @@ function simRenderLoop(){
     const speedKmh=simGetSpeedKmh();
     simCamPos=Math.min(simCamPos+speedKmh/3600*dt, simTargetDist);
     simElapsed+=dt;
+
+    // Detect planet crossings — simCamPosPrev → simCamPos
+    SIM_PLANETS.forEach(p=>{
+      if(simPassedPlanets.has(p.name)) return;
+      if(p.name===simTarget.name) return;
+      // Trigger when ship crosses planet's distance (prev < dist <= current)
+      if(simCamPosPrev < p.dist_km && simCamPos >= p.dist_km){
+        simPassedPlanets.add(p.name);
+        simFlightLog.unshift({
+          name:  p.name,
+          color: p.color,
+          time:  simFormatTime(simElapsed),
+          ts:    performance.now(), // for entry animation
+        });
+        if(simFlightLog.length>8) simFlightLog.pop();
+
+      }
+    });
+    simCamPosPrev=simCamPos;
 
     if(simCamPos>=simTargetDist*0.999){
       simRunning=false; simLastTs=null;
@@ -9133,6 +9250,7 @@ function simRenderLoop(){
 
   try {
     simDraw(canvas);
+    simDrawLog(canvas);
   } catch(e) {
     console.error('[Sim] Draw error:', e.message, e.stack);
   }
@@ -9170,6 +9288,7 @@ function simUpdateHud(){
 }
 
 function simSelectPlanet(idx){
+  simFlightLog=[]; simPassedPlanets=new Set(); simCamPosPrev=0;
   simTarget=SIM_PLANETS[idx];
   simTargetDist=simTarget.dist_km;
   document.querySelectorAll('.sim-planet-btn').forEach((b,i)=>b.classList.toggle('active',i===idx));
@@ -9187,7 +9306,8 @@ function simToggle(){
   }
 }
 function simReset(){
-  simRunning=false; simCamPos=0; simElapsed=0; simLastTs=null;
+  simRunning=false; simCamPos=0; simElapsed=0; simLastTs=null; simCamPosPrev=0;
+  simFlightLog=[]; simPassedPlanets=new Set();
   const btn=document.getElementById('simStartBtn');
   if(btn){btn.textContent='▶ Start';btn.style.cssText='';}
 }
@@ -9270,7 +9390,11 @@ function initSimTab(){
     simRotY+=dx*0.005; simRotX=Math.max(-1.2,Math.min(1.2,simRotX+dy*0.005));
     simDragLast={x:e.clientX,y:e.clientY};
   });
-  // scroll zoom disabled — fixed view
+  canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    // Move camera closer/farther — perspective zoom preserves scale
+    simCamDistTarget = Math.max(-SIM_FOV+80, Math.min(8000, simCamDistTarget + e.deltaY * 2.5));
+  }, {passive:false});
 
   // Touch support
   let lastTouchDist=0, lastTouch={x:0,y:0};
@@ -9286,7 +9410,11 @@ function initSimTab(){
       simRotY+=dx*0.005; simRotX=Math.max(-1.2,Math.min(1.2,simRotX+dy*0.005));
       lastTouch={x:e.touches[0].clientX,y:e.touches[0].clientY};
     }
-    // pinch zoom disabled — fixed view
+    if(e.touches.length===2){
+      const d2=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+      simCamDistTarget=Math.max(-SIM_FOV+80,Math.min(8000,simCamDistTarget+(lastTouchDist-d2)*5));
+      lastTouchDist=d2;
+    }
   },{passive:false});
   canvas.addEventListener('touchend',()=>{simDrag=false;});
 
