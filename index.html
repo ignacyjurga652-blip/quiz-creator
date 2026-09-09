@@ -1898,6 +1898,40 @@ html.is-desktop .tab-nav-inner { gap: 4px; }
 }
 
 
+
+/* ── CARD FLIP / START VIEW ──────────────────────────────── */
+.card-start-view {
+  display: none; padding: 10px 0 4px;
+  animation: fadeInUp .25s ease;
+}
+.card-start-view.active { display: block; }
+.csv-title {
+  font-family: var(--mono); font-size: 8px; letter-spacing: .2em;
+  color: var(--text-dim); text-transform: uppercase; margin-bottom: 10px;
+}
+.csv-stats {
+  display: flex; gap: 8px; justify-content: space-between;
+}
+.csv-stat {
+  flex: 1; background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 8px; padding: 8px 6px; text-align: center;
+}
+.csv-stat strong {
+  display: block; font-family: var(--mono); font-size: .9rem;
+  font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums;
+  margin-bottom: 2px;
+}
+.csv-stat span {
+  font-family: var(--mono); font-size: 8px; color: var(--text-dim);
+  letter-spacing: .1em; text-transform: uppercase;
+}
+.csv-no-start {
+  font-family: var(--mono); font-size: 10px; color: var(--text-dim);
+  text-align: center; padding: 12px 0; line-height: 1.8;
+}
+.card-btn.flip { font-size: 13px; }
+
 </style>
   <!-- Leaflet.js for ISS + Earthquake maps -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -4014,6 +4048,58 @@ function fuzzy(ms){
 // ═══════════════════════════════════════════════════════════
 function clearTimers(){allTimers.forEach(clearInterval);allTimers=[];}
 
+function flipCard(id) {
+  const main = document.getElementById(id+'_dg');
+  const prog = document.getElementById(id+'_fl');
+  const pt   = document.getElementById(id+'_pt');
+  const st   = document.getElementById(id+'_st');
+  const sv   = document.getElementById(id+'_sv');
+  const fz   = document.getElementById(id+'_fz');
+  const sk   = document.getElementById(id+'_sk');
+  if (!sv) return;
+
+  const isFlipped = sv.classList.toggle('active');
+
+  // Toggle visibility of main countdown elements
+  [main, fz, sk].forEach(el => {
+    if (el) el.style.display = isFlipped ? 'none' : '';
+  });
+  if (st) st.style.display = isFlipped ? 'none' : '';
+  if (prog && prog.parentElement) prog.parentElement.parentElement.style.display = isFlipped ? 'none' : '';
+
+  // Find startT from card's parent (passed via data attr)
+  const card = sv.closest('.card');
+  const startT = card ? parseInt(card.dataset.startT || '0') : 0;
+  if (isFlipped) updStartView(sv, startT || null);
+}
+
+function updStartView(sv, startT) {
+  const now = Date.now();
+  if (!startT) {
+    sv.innerHTML = `
+      <div class="csv-title">Od daty startu</div>
+      <div class="csv-no-start">
+        ⚠️ Data startu nie została podana<br>
+        
+      </div>`;
+    return;
+  }
+  const el  = now - startT;
+  const sec = Math.floor(el / 1000);
+  const min = Math.floor(el / 60000);
+  const h   = Math.floor(el / 3600000);
+  const d   = Math.floor(el / 86400000);
+  function fmt(n){ return n.toLocaleString('pl-PL'); }
+  sv.innerHTML = `
+    <div class="csv-title">Czas od daty startu</div>
+    <div class="csv-stats">
+      <div class="csv-stat"><strong>${fmt(sec)}</strong><span>Sekundy</span></div>
+      <div class="csv-stat"><strong>${fmt(min)}</strong><span>Minuty</span></div>
+      <div class="csv-stat"><strong>${fmt(h)}</strong><span>Godziny</span></div>
+      <div class="csv-stat"><strong>${fmt(d)}</strong><span>Dni</span></div>
+    </div>`;
+}
+
 function makeCard(cfg,isCustom){
   const target=new Date(cfg.date).getTime();
   const startT=cfg.start?new Date(cfg.start).getTime():null;
@@ -4025,6 +4111,7 @@ function makeCard(cfg,isCustom){
   const card=document.createElement('div');
   card.className='card';card.id=id;
   card.style.setProperty('--accent-color',cfg.color||'var(--gold)');
+  if(startT) card.dataset.startT=startT;
 
   const dateStr=new Date(cfg.date).toLocaleDateString('pl-PL',{day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'});
 
@@ -4034,6 +4121,7 @@ function makeCard(cfg,isCustom){
       ${isCustom?`<button class="card-btn" onclick="shareCard('${uid}','${encodeURIComponent(cfg.title)}')">⎘</button>`:''}
       <button class="card-btn ${hasBell?'on':''}" id="bell_${id}" onclick="toggleNotif('${uid}','${id}')">🔔</button>
       <button class="card-btn ${isFav?'on':''}" onclick="toggleFav('${uid}',this)">★</button>
+      <button class="card-btn flip" title="Pokaż czas od startu" onclick="flipCard('${id}')">⇄</button>
       ${isCustom?`<button class="card-btn del" onclick="removeCustom('${cfg._id||uid}','${id}')">✕</button>`:''}
     </div>
     ${countUp?'<div class="countup-label">↑ Odliczanie w górę</div>':''}
@@ -4047,6 +4135,7 @@ function makeCard(cfg,isCustom){
       <div class="progress-labels"><span id="${id}_pt" class="pct">0%</span><span id="${id}_sk" style="color:var(--text-dim)">—</span></div>
     </div>
     <div class="stats-row" id="${id}_st"></div>
+    <div class="card-start-view" id="${id}_sv"></div>
     ${cfg.fact?`<div class="fact">${cfg.fact}</div>`:''}
   `;
 
@@ -4090,6 +4179,11 @@ function makeCard(cfg,isCustom){
       <div class="stat"><span>Tygodnie</span><strong>${fmt(Math.floor(d/7))}</strong></div>
       <div class="stat"><span>Godziny</span><strong>${fmt(Math.floor(abs/3600000))}</strong></div>
       <div class="stat"><span>Minuty</span><strong>${fmt(Math.floor(abs/60000))}</strong></div>`;
+    // Update start-view if it's showing
+    const sv=document.getElementById(id+'_sv');
+    if(sv&&sv.classList.contains('active')){
+      updStartView(sv,startT);
+    }
   }
   upd();
   const t=setInterval(upd,1000);allTimers.push(t);
