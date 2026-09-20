@@ -2761,6 +2761,19 @@ html.is-desktop .tab-nav-inner { gap: 4px; }
         </div>
         <div class="season-bar-bg"><div class="season-bar-fill" id="seasonBar" style="width:0%"></div></div>
       </div>
+      <!-- Season countdown -->
+      <div id="seasonCountdownWrap" style="margin:14px 0 6px;display:flex;flex-direction:column;align-items:center;">
+        <div style="font-family:var(--mono);font-size:9px;letter-spacing:.18em;color:var(--text-dim);text-transform:uppercase;margin-bottom:8px;text-align:center;width:100%;" id="seasonCdLabel">Do końca</div>
+        <div style="display:flex;gap:8px;justify-content:center;" id="seasonCdDigits">
+          <div style="text-align:center;"><span class="digit-val" id="scd_d" style="font-size:1.3rem;">—</span><div style="font-family:var(--mono);font-size:8px;color:var(--text-dim);margin-top:2px;">DNI</div></div>
+          <span class="digit-sep" style="font-size:1.2rem;">:</span>
+          <div style="text-align:center;"><span class="digit-val" id="scd_h" style="font-size:1.3rem;">—</span><div style="font-family:var(--mono);font-size:8px;color:var(--text-dim);margin-top:2px;">GODZ</div></div>
+          <span class="digit-sep" style="font-size:1.2rem;">:</span>
+          <div style="text-align:center;"><span class="digit-val" id="scd_m" style="font-size:1.3rem;">—</span><div style="font-family:var(--mono);font-size:8px;color:var(--text-dim);margin-top:2px;">MIN</div></div>
+          <span class="digit-sep" style="font-size:1.2rem;">:</span>
+          <div style="text-align:center;"><span class="digit-val" id="scd_s" style="font-size:1.3rem;">—</span><div style="font-family:var(--mono);font-size:8px;color:var(--text-dim);margin-top:2px;">SEK</div></div>
+        </div>
+      </div>
       <div class="season-extras" id="seasonExtras"></div>
     </div>
 
@@ -6821,12 +6834,57 @@ function applySeasonContent(s, isCurrent, emoji, name, dates, bar, pct, badge, l
     ).join('');
     extras.innerHTML = html;
   }
+
+  // Store current shown season for countdown
+  window._shownSeasonDef = s;
+  window._shownSeasonIsCurrent = isCurrent;
+  updateSeasonCountdown();
+}
+
+function getSeasonEndDate(s) {
+  const now = new Date();
+  let year = now.getFullYear();
+  // Build end date: s.endM (0-based month), s.endD (day)
+  let end = new Date(year, s.endM, s.endD, 23, 59, 59);
+  // If already past this year's end, use next year
+  if (end < now) end = new Date(year + 1, s.endM, s.endD, 23, 59, 59);
+  return end;
+}
+
+function updateSeasonCountdown() {
+  const s = window._shownSeasonDef;
+  const isCurrent = window._shownSeasonIsCurrent;
+  const lbl  = document.getElementById('seasonCdLabel');
+  const pad  = n => String(Math.floor(n)).padStart(2,'0');
+  function sv(id, v) { const e = document.getElementById(id); if(e) e.textContent = v; }
+
+  if (!s || !isCurrent) {
+    // Preview mode — show dashes
+    if (lbl) lbl.textContent = 'Do końca';
+    sv('scd_d','—'); sv('scd_h','—'); sv('scd_m','—'); sv('scd_s','—');
+    return;
+  }
+
+  const end  = getSeasonEndDate(s);
+  const diff = end.getTime() - Date.now();
+  if (diff <= 0) { sv('scd_d','00'); sv('scd_h','00'); sv('scd_m','00'); sv('scd_s','00'); return; }
+
+  const d = Math.floor(diff / 86400000);
+  const h = Math.floor(diff % 86400000 / 3600000);
+  const m = Math.floor(diff % 3600000 / 60000);
+  const sc= Math.floor(diff % 60000 / 1000);
+
+  if (lbl) lbl.textContent = 'Do końca';
+  sv('scd_d', pad(d)); sv('scd_h', pad(h)); sv('scd_m', pad(m)); sv('scd_s', pad(sc));
 }
 
 function navSeason(dir) {
   shownSeasonIdx = (shownSeasonIdx + dir + 4) % 4;
   renderSeasonCard(shownSeasonIdx, true);
 }
+
+// Tick season countdown every second
+setInterval(updateSeasonCountdown, 1000);
 
 function initSeasonCard() {
   shownSeasonIdx = getCurrentSeasonIdx();
