@@ -11101,9 +11101,146 @@ const G = {
   tex: { day: null, night: null, clouds: null, spec: null }, texHi: false, T: null,
   visible: false, raf: 0, lastFrame: 0, stars: [], cloudOff: 0, orbit: [], orbitAt: 0,
   tleKey: '', tle: null, hudAt: 0, iss: null, atm: null, actx: null,
-  texV: 0, dirty: true, rLam: 999, rPhi: 999, rAt: 0, rTexV: -1
+  texV: 0, dirty: true, rLam: 999, rPhi: 999, rAt: 0, rTexV: -1,
+  inflight: false, bufGeom: null, bufTexV: -1, reqTexV: -1, recycle: null, wErr: 0, atmKey: '', atmR: 0
 };
 window.__chronosGlobe = G;   // podgląd stanu globusa w konsoli (diagnostyka)
+window.__chronosFX = { worker: () => !!RW };
+
+// ── Wątek roboczy (Web Worker): ciężkie obliczenia poza wątkiem strony ──
+// Tablice rzutu, piksele Ziemi/Księżyca i poświata miast liczą się w tle,
+// więc animacja (orbita, ISS, zoom) nie czeka na nie i nie gubi klatek.
+let RW;                                   // undefined = nie próbowano, null = tryb zwykły
+function workerMain() {
+  const TEX = { earth: { day: null, night: null, clouds: null, spec: null, glow: null }, moon: { moon: null } };
+  const TABLES = { earth: [], moon: [] };
+  function table(body, m) {
+    const key = m.bw + ',' + m.bh + ',' + m.x0 + ',' + m.x1 + ',' + m.y0 + ',' + m.y1 + ',' + m.phi0;
+    const L = TABLES[body];
+    for (let i = 0; i < L.length; i++) if (L[i].key === key) return L[i].T;
+    const old = L.length >= 2 ? L.shift() : null;
+    const T = fxBuildTableRect(m.bw, m.bh, m.x0, m.x1, m.y0, m.y1, m.phi0, old ? old.T : null);
+    L.push({ key, T });
+    return T;
+  }
+  self.onmessage = function (e) {
+    const m = e.data;
+    try {
+      if (m.type === 'tex') {
+        const t = { w: m.w, h: m.h, d: new Uint8ClampedArray(m.d) };
+        if (m.body === 'moon') TEX.moon.moon = prepMoonTex(t);
+        else { TEX.earth[m.name] = t; if (m.name === 'night') TEX.earth.glow = fxMakeGlow(t); }
+        return;
+      }
+      if (m.type === 'render') {
+        const T = table(m.body, m), n = m.bw * m.bh * 4;
+        const out = (m.recycle && m.recycle.byteLength === n) ? new Uint8ClampedArray(m.recycle) : new Uint8ClampedArray(n);
+        out.fill(0);
+        if (m.body === 'moon') fxRenderMoon(out, T, TEX.moon, { lam0: m.lam0, sun: m.sun, earthshine: m.earthshine });
+        else fxRenderGlobe(out, T, TEX.earth, { lam0: m.lam0, phi0: T.phi, sun: m.sun, cloudsOn: m.cloudsOn, cloudOff: m.cloudOff });
+        self.postMessage({ type: 'frame', body: m.body, bw: m.bw, bh: m.bh, x0: m.x0, x1: m.x1, y0: m.y0, y1: m.y1,
+                           lam0: m.lam0, phi0: m.phi0, data: out.buffer }, [out.buffer]);
+      }
+    } catch (err) { self.postMessage({ type: 'error', body: m.body, msg: String(err && err.message || err) }); }
+  };
+}
+function getWorker() {
+  if (RW !== undefined) return RW;
+  RW = null;
+  try {
+    if (!window.Worker || !window.Blob || !window.URL || !URL.createObjectURL) return RW;
+    const src = "'use strict';\nconst RAD = Math.PI / 180, DEG = 180 / Math.PI;\n" +
+      [fxBuildTableRect, fxRenderGlobe, fxRenderMoon, fxMakeGlow, prepMoonTex].map(f => f.toString()).join('\n') +
+      '\n(' + workerMain.toString() + ')();';
+    const w = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+    w.onmessage = onWorkerMsg;
+    w.onerror = e => { console.warn('[CHRONOS FX] wątek roboczy:', e && e.message); disableWorker(); };
+    RW = w;
+  } catch (e) { console.warn('[CHRONOS FX] wątek roboczy niedostępny — tryb zwykły', e); RW = null; }
+  return RW;
+}
+function bodyState(body) { return body === 'moon' ? MN : G; }
+function onWorkerMsg(e) {
+  const m = e.data, S = bodyState(m.body);
+  S.inflight = false;
+  if (m.type === 'error') { console.warn('[CHRONOS FX] render:', m.msg); if (++S.wErr > 3) disableWorker(); return; }
+  if (m.type !== 'frame') return;
+  if (!S.buf || S.buf.width !== m.bw || S.buf.height !== m.bh) {
+    S.buf = document.createElement('canvas'); S.buf.width = m.bw; S.buf.height = m.bh; S.bctx = S.buf.getContext('2d');
+  }
+  const px = new Uint8ClampedArray(m.data);
+  let img;
+  if (typeof ImageData === 'function') img = new ImageData(px, m.bw, m.bh);
+  else { img = S.bctx.createImageData(m.bw, m.bh); img.data.set(px); }
+  S.bctx.putImageData(img, 0, 0);
+  S.bufGeom = { bw: m.bw, bh: m.bh, x0: m.x0, x1: m.x1, y0: m.y0, y1: m.y1, lam: m.lam0, phi: m.phi0 };
+  S.bufTexV = S.reqTexV; S.rAt = Date.now(); S.recycle = m.data;
+  if (S === G) kick(); else moonKick();
+}
+function disableWorker() {
+  if (RW) safe(() => RW.terminate(), 'terminate');
+  RW = null;
+  [G, MN].forEach(S => { S.inflight = false; S.texHi = false; S.viewKey = ''; S.T = null; S.bufGeom = null; S.img = null; S.dirty = true; });
+  G.tex = { day: null, night: null, clouds: null, spec: null, glow: null }; MN.tex = { moon: null };
+  if (G.inited) loadTextures();
+  if (MN.inited) loadMoonTex();
+}
+// Tekstura → wątek roboczy (bez kopiowania) albo do pamięci strony (tryb zwykły)
+function giveTex(S, body, name, t) {
+  if (RW) RW.postMessage({ type: 'tex', body, name, w: t.w, h: t.h, d: t.d.buffer }, [t.d.buffer]);
+  else if (body === 'moon') S.tex.moon = prepMoonTex(t);
+  else { S.tex[name] = t; if (name === 'night') safe(() => { S.tex.glow = fxMakeGlow(t); }, 'glow'); }
+  S.texV++;
+}
+function computeGeom(W, H, cx, cy, R, dprCap, budget) {
+  const vx0 = Math.max(0, Math.floor(cx - R)), vx1 = Math.min(W, Math.ceil(cx + R));
+  const vy0 = Math.max(0, Math.floor(cy - R)), vy1 = Math.min(H, Math.ceil(cy + R));
+  const cw = vx1 - vx0, ch = vy1 - vy0;
+  if (cw <= 2 || ch <= 2) return null;
+  const sc = Math.min(dprCap, Math.sqrt(budget / (cw * ch)));
+  return { bw: Math.max(16, Math.round(cw * sc)), bh: Math.max(16, Math.round(ch * sc)),
+           x0: (vx0 - cx) / R, x1: (vx1 - cx) / R, y0: (cy - vy1) / R, y1: (cy - vy0) / R };
+}
+// Jeden krok warstwy pikseli: zleca render (wątek) albo liczy na miejscu (tryb zwykły).
+// Zwraca kąty widoku, z którymi zgodny jest aktualny obraz — nakładki używają tych samych.
+function pixelsStep(S, body, W, H, cx, cy, R, params, now, refreshMs, renderSync) {
+  if (RW) {
+    const fast = S.dragging || Math.abs(S.zoomT - S.zoom) > 0.002;
+    const geom = computeGeom(W, H, cx, cy, R, S.dprCap, (W < 700 ? 160000 : 380000) * (fast ? 0.4 : 1));
+    const phiReq = S.dragging ? S.phi0 : Math.round(S.phi0 * 10) / 10;
+    const bg = S.bufGeom;
+    if (geom && !S.inflight) {
+      const same = bg && bg.bw === geom.bw && bg.bh === geom.bh && Math.abs(bg.x0 - geom.x0) < 1e-4 &&
+        Math.abs(bg.x1 - geom.x1) < 1e-4 && Math.abs(bg.y0 - geom.y0) < 1e-4 && Math.abs(bg.y1 - geom.y1) < 1e-4;
+      const need = !same || S.dirty || S.bufTexV !== S.texV || Math.abs(wrap180(S.lam0 - bg.lam)) > 0.02 ||
+        Math.abs(phiReq - bg.phi) > 1e-6 || now - S.rAt > refreshMs;
+      if (need) {
+        const msg = Object.assign({ type: 'render', body, lam0: S.lam0, phi0: phiReq }, geom, params);
+        const tr = [];
+        if (S.recycle && S.recycle.byteLength === geom.bw * geom.bh * 4) { msg.recycle = S.recycle; tr.push(S.recycle); }
+        S.recycle = null; S.inflight = true; S.dirty = false; S.reqTexV = S.texV;
+        RW.postMessage(msg, tr);
+      }
+    }
+    return bg ? { lam: bg.lam, phi: bg.phi } : { lam: S.lam0, phi: S.phi0 };
+  }
+  const view = prepView(S, W, H, cx, cy, R);
+  const need = view && (S.dirty || S.dragging || S.rTexV !== S.texV ||
+    Math.abs(wrap180(S.lam0 - S.rLam)) > 0.02 || Math.abs(S.phi0 - S.rPhi) > 0.02 || now - S.rAt > refreshMs);
+  if (need) {
+    renderSync();
+    S.bctx.putImageData(S.img, 0, 0);
+    S.dirty = false; S.rLam = S.lam0; S.rPhi = S.phi0; S.rAt = now; S.rTexV = S.texV;
+  }
+  if (view) S.bufGeom = { x0: (view.x - cx) / R, x1: (view.x + view.w - cx) / R, y0: (cy - view.y - view.h) / R,
+                          y1: (cy - view.y) / R, lam: S.rLam, phi: S.T.phi };
+  return { lam: S.rLam, phi: S.T ? S.T.phi : S.phi0 };
+}
+function drawPixels(ctx, S, cx, cy, R) {
+  const g = S.bufGeom; if (!g || !S.buf) return;
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'medium';
+  ctx.drawImage(S.buf, cx + g.x0 * R, cy - g.y1 * R, (g.x1 - g.x0) * R, (g.y1 - g.y0) * R);
+}
 
 // ── Wspólne dla globusa i Księżyca ────────────────────────────
 // Bufor pikseli obejmuje tylko widoczną część tarczy → przy zoomie obraz
@@ -11120,7 +11257,7 @@ function prepView(S, W, H, cx, cy, R) {
   const key = bw + ',' + bh + ',' + x0.toFixed(4) + ',' + x1.toFixed(4) + ',' + y0.toFixed(4) + ',' + y1.toFixed(4);
   const phiMoved = !S.T || Math.abs(S.phi0 - S.T.phi) > (S.dragging ? 0.12 : 0.2);
   if (key !== S.viewKey || phiMoved) {
-    if (!S.buf || S.buf.width !== bw || S.buf.height !== bh) {
+    if (!S.buf || !S.img || S.buf.width !== bw || S.buf.height !== bh) {
       S.buf = document.createElement('canvas'); S.buf.width = bw; S.buf.height = bh;
       S.bctx = S.buf.getContext('2d'); S.img = S.bctx.createImageData(bw, bh);
     } else if (key !== S.viewKey) S.img.data.fill(0);
@@ -11180,6 +11317,25 @@ function attachControls(c, S, o) {
 function zoomStep(S, dt) {
   S.zoom += (S.zoomT - S.zoom) * Math.min(1, dt * 7);
   if (Math.abs(S.zoomT - S.zoom) < 0.0015) S.zoom = S.zoomT;
+}
+// Tło (gradient + opcjonalna poświata tarczy) jako gotowy obraz — gradient liczy się raz, nie co klatkę
+function bgCache(S, W, H, cx, cy, R, inner, haloRGB, halo) {
+  const key = W + 'x' + H + '|' + Math.round(Math.log(R) * 12) + '|' + Math.round(halo * 60);
+  if (S.bgKey === key && S.bgC) return S.bgC;
+  S.bgKey = key;
+  const sc = Math.min(1, 700 / Math.max(W, H));                    // gradient: niska rozdzielczość wystarczy
+  if (!S.bgC) { S.bgC = document.createElement('canvas'); S.bgX = S.bgC.getContext('2d'); }
+  S.bgC.width = Math.max(1, Math.round(W * sc)); S.bgC.height = Math.max(1, Math.round(H * sc));
+  const x = S.bgX; x.setTransform(sc, 0, 0, sc, 0, 0);
+  const bg = x.createRadialGradient(cx, cy, R * 0.6, cx, cy, Math.max(W, H) * 0.8);
+  bg.addColorStop(0, inner); bg.addColorStop(1, '#010207');
+  x.fillStyle = bg; x.fillRect(0, 0, W, H);
+  if (haloRGB && halo > 0) {
+    const hg = x.createRadialGradient(cx, cy, R * 0.98, cx, cy, R * 1.45);
+    hg.addColorStop(0, 'rgba(' + haloRGB + ',' + halo.toFixed(3) + ')'); hg.addColorStop(1, 'rgba(' + haloRGB + ',0)');
+    x.fillStyle = hg; x.beginPath(); x.arc(cx, cy, R * 1.45, 0, 6.2832); x.fill();
+  }
+  return S.bgC;
 }
 function drawStars(ctx, stars, W, H, lam0, phi0) {
   const shift = (lam0 / 360) * W * 0.6;
@@ -11260,21 +11416,18 @@ function loadTextures() {
   const lbl = $('#fxGTex');
   // 1) natychmiast: wbudowana mała tekstura (działa zawsze, nawet offline)
   if (window.CHRONOS_EARTH_FALLBACK) {
-    loadTex(window.CHRONOS_EARTH_FALLBACK, 512).then(t => { if (!G.texHi) { G.tex.day = t; G.texV++; } }).catch(() => {});
+    loadTex(window.CHRONOS_EARTH_FALLBACK, 512).then(t => { if (!G.texHi) giveTex(G, 'earth', 'day', t); }).catch(() => {});
   }
   // 2) pełna jakość z GitHub (NASA Blue Marble via three.js)
   const big = innerWidth > 700 ? 2048 : 1024;
   loadTex(TEX_BASE + 'earth_atmos_2048.jpg', big).then(t => {
-    G.tex.day = t; G.texHi = true; G.texV++;
+    G.texHi = true; giveTex(G, 'earth', 'day', t);
     if (lbl) lbl.textContent = '· NASA Blue Marble ✓';
   }).catch(() => { if (lbl) lbl.textContent = '· tekstura uproszczona'; });
-  loadTex(TEX_BASE + 'earth_lights_2048.png', innerWidth > 700 ? 2048 : 1024).then(t => {
-    G.tex.night = t; safe(() => { G.tex.glow = fxMakeGlow(t); }, 'glow'); G.texV++;
-  }).catch(() => {});
-  loadTex(TEX_BASE + 'earth_clouds_1024.png', 1024).then(t => { G.tex.clouds = t; G.texV++; }).catch(() => {});
-  loadTex(TEX_BASE + 'earth_specular_2048.jpg', 1024).then(t => { G.tex.spec = t; G.texV++; }).catch(() => {});
+  loadTex(TEX_BASE + 'earth_lights_2048.png', big).then(t => giveTex(G, 'earth', 'night', t)).catch(() => {});
+  loadTex(TEX_BASE + 'earth_clouds_1024.png', 1024).then(t => giveTex(G, 'earth', 'clouds', t)).catch(() => {});
+  loadTex(TEX_BASE + 'earth_specular_2048.jpg', 1024).then(t => giveTex(G, 'earth', 'spec', t)).catch(() => {});
 }
-
 function sizeGlobe() {
   const c = G.canvas; if (!c) return;
   const rect = c.getBoundingClientRect();
@@ -11301,6 +11454,7 @@ function initGlobe() {
   const p0 = issNow(Date.now());
   G.lam0 = p0.lon; G.phi0 = Math.max(-60, Math.min(60, p0.lat * 0.85));
   sizeGlobe();
+  getWorker();
   loadTextures();
 
   // sterowanie: przeciąganie, kółko, dwa palce
@@ -11328,7 +11482,8 @@ function initGlobe() {
 function hideHint() { const h = $('#fxGHint'); if (h) h.style.opacity = '0'; }
 function setFollowBtn() { const b = $('#fxGFollow'); if (b) b.classList.toggle('on', G.follow); }
 function wrap180(x) { return ((x + 540) % 360 + 360) % 360 - 180; }
-function paneActive() { const p = $('#pane_iss'); return !!(p && p.classList.contains('active')); }
+let paneIssEl = null;
+function paneActive() { if (!paneIssEl) paneIssEl = $('#pane_iss'); return !!(paneIssEl && paneIssEl.classList.contains('active')); }
 function shouldRun() { return G.inited && G.visible && !document.hidden && paneActive(); }
 function kick() { if (!G.raf && shouldRun()) G.raf = requestAnimationFrame(globeFrame); }
 
@@ -11336,7 +11491,7 @@ function globeFrame(ts) {
   G.raf = 0;
   if (!shouldRun()) return;
   G.raf = requestAnimationFrame(globeFrame);
-  if (!G.dragging && ts - G.lastFrame < 31) return;          // ~30 kl./s
+  if (!RW && !G.dragging && ts - G.lastFrame < 31) return;    // tryb zwykły: ~30 kl./s; z wątkiem: pełna płynność
   const dt = G.lastFrame ? Math.min(0.1, (ts - G.lastFrame) / 1000) : 0.033;
   G.lastFrame = ts;
   safe(() => { globeUpdate(dt); globeDraw(); }, 'globe');
@@ -11370,23 +11525,13 @@ function globeDraw() {
   const ctx = G.ctx, W = G.W, H = G.H, now = Date.now();
   const cx = W / 2, cy = H / 2 + (W < 700 ? -14 : 0), R = G.Rbase * G.zoom;
   const sun = fxSunVec(now);
-  const view = prepView(G, W, H, cx, cy, R);
-  // Piksele Ziemi przeliczane tylko przy realnej zmianie (oszczędność CPU);
-  // nakładki (orbita, ISS, puls) rysowane w każdej klatce — z tym samym kątem widoku.
-  const needPix = view && (G.dirty || G.dragging || G.rTexV !== G.texV ||
-    Math.abs(wrap180(G.lam0 - G.rLam)) > 0.02 || Math.abs(G.phi0 - G.rPhi) > 0.02 || now - G.rAt > 1500);
-  if (needPix) {
-    fxRenderGlobe(G.img.data, G.T, G.tex, { lam0: G.lam0, phi0: G.T.phi, sun, cloudsOn: G.cloudsOn, cloudOff: G.cloudOff });
-    G.bctx.putImageData(G.img, 0, 0);
-    G.dirty = false; G.rLam = G.lam0; G.rPhi = G.phi0; G.rAt = now; G.rTexV = G.texV;
-  }
-  const lam0 = G.rLam, phi0 = G.T ? G.T.phi : G.phi0;
+  const pv = pixelsStep(G, 'earth', W, H, cx, cy, R, { sun, cloudsOn: G.cloudsOn, cloudOff: G.cloudOff }, now, 1500,
+    () => fxRenderGlobe(G.img.data, G.T, G.tex, { lam0: G.lam0, phi0: G.T.phi, sun, cloudsOn: G.cloudsOn, cloudOff: G.cloudOff }));
+  const lam0 = pv.lam, phi0 = pv.phi;
   const sv = fxVecToView(sun, lam0, phi0);
 
   // tło: kosmos + gwiazdy (paralaksa z obrotem)
-  const bg = ctx.createRadialGradient(cx, cy, R * 0.6, cx, cy, Math.max(W, H) * 0.8);
-  bg.addColorStop(0, '#060b1c'); bg.addColorStop(1, '#010207');
-  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+  ctx.drawImage(bgCache(G, W, H, cx, cy, R, '#060b1c', null, 0), 0, 0, W, H);
   drawStars(ctx, G.stars, W, H, lam0, phi0);
 
   // poświata Słońca zza krawędzi Ziemi („wschód słońca z orbity")
@@ -11412,30 +11557,38 @@ function globeDraw() {
   strokeOrbit(ctx, orbitPts, false);
 
   // glob
-  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-  if (view) ctx.drawImage(G.buf, view.x, view.y, view.w, view.h);
+  drawPixels(ctx, G, cx, cy, R);
 
-  // atmosfera — świeci po stronie dziennej, gaśnie po nocnej
-  const aR = R * 1.16, asz = Math.ceil(aR * 2 + 4), apx = Math.min(asz, 900), af = apx / asz;
-  if (!G.atm || G.atm.width !== apx) { G.atm = document.createElement('canvas'); G.atm.width = G.atm.height = apx; G.actx = G.atm.getContext('2d'); }
-  const a = G.actx, ac = asz / 2;
-  a.setTransform(1, 0, 0, 1, 0, 0); a.globalCompositeOperation = 'source-over'; a.clearRect(0, 0, apx, apx);
-  a.setTransform(af, 0, 0, af, 0, 0);
-  const ag = a.createRadialGradient(ac, ac, R * 0.97, ac, ac, aR);
-  ag.addColorStop(0, 'rgba(115,180,255,0.55)');
-  ag.addColorStop(0.16, 'rgba(80,140,255,0.22)');
-  ag.addColorStop(0.5, 'rgba(60,100,220,0.06)');
-  ag.addColorStop(1, 'rgba(40,60,160,0)');
-  a.fillStyle = ag; a.beginPath(); a.arc(ac, ac, aR, 0, 6.2832); a.arc(ac, ac, R * 0.97, 0, 6.2832, true); a.fill();
-  const ip = Math.hypot(sv.x, sv.y);
-  if (ip > 0.05) {
-    const ux = sv.x / ip, uy = -sv.y / ip, st = Math.min(1, ip * 1.4);
-    const lg = a.createLinearGradient(ac + ux * aR, ac + uy * aR, ac - ux * aR, ac - uy * aR);
-    lg.addColorStop(0, 'rgba(0,0,0,0)'); lg.addColorStop(0.45, 'rgba(0,0,0,' + (0.3 * st).toFixed(3) + ')');
-    lg.addColorStop(1, 'rgba(0,0,0,' + (0.88 * st).toFixed(3) + ')');
-    a.globalCompositeOperation = 'destination-out'; a.fillStyle = lg; a.fillRect(0, 0, asz, asz);
+  // atmosfera — świeci po stronie dziennej, gaśnie po nocnej. Bufor rysowany raz (Słońce „w prawo"),
+  // a przy obracaniu globusa tylko obracany — to prawie darmowe.
+  const ip = Math.hypot(sv.x, sv.y), st = ip > 0.05 ? Math.min(1, ip * 1.4) : 0;
+  if (!G.atmR || Math.abs(R / G.atmR - 1) > 0.12) G.atmR = R;      // przy zoomie: skalowanie gotowego obrazu
+  const Ra = G.atmR, aR = Ra * 1.16, asz = Math.ceil(aR * 2 + 4), apx = Math.min(asz, 900), af = apx / asz, ac = asz / 2;
+  const atmKey = asz + '|' + Math.round(st * 25);
+  if (atmKey !== G.atmKey) {
+    G.atmKey = atmKey;
+    if (!G.atm || G.atm.width !== apx) { G.atm = document.createElement('canvas'); G.atm.width = G.atm.height = apx; G.actx = G.atm.getContext('2d'); }
+    const a = G.actx;
+    a.setTransform(1, 0, 0, 1, 0, 0); a.globalCompositeOperation = 'source-over'; a.clearRect(0, 0, apx, apx);
+    a.setTransform(af, 0, 0, af, 0, 0);
+    const ag = a.createRadialGradient(ac, ac, Ra * 0.97, ac, ac, aR);
+    ag.addColorStop(0, 'rgba(115,180,255,0.55)');
+    ag.addColorStop(0.16, 'rgba(80,140,255,0.22)');
+    ag.addColorStop(0.5, 'rgba(60,100,220,0.06)');
+    ag.addColorStop(1, 'rgba(40,60,160,0)');
+    a.fillStyle = ag; a.beginPath(); a.arc(ac, ac, aR, 0, 6.2832); a.arc(ac, ac, Ra * 0.97, 0, 6.2832, true); a.fill();
+    if (st > 0) {
+      const lg = a.createLinearGradient(ac + aR, ac, ac - aR, ac);
+      lg.addColorStop(0, 'rgba(0,0,0,0)'); lg.addColorStop(0.45, 'rgba(0,0,0,' + (0.3 * st).toFixed(3) + ')');
+      lg.addColorStop(1, 'rgba(0,0,0,' + (0.88 * st).toFixed(3) + ')');
+      a.globalCompositeOperation = 'destination-out'; a.fillStyle = lg; a.fillRect(0, 0, asz, asz);
+    }
   }
-  ctx.drawImage(G.atm, cx - ac, cy - ac, asz, asz);
+  const ks = R / Ra;
+  ctx.save(); ctx.translate(cx, cy);
+  if (st > 0) ctx.rotate(Math.atan2(-sv.y, sv.x));
+  ctx.drawImage(G.atm, -ac * ks, -ac * ks, asz * ks, asz * ks);
+  ctx.restore();
   // airglow — cienki zielonkawy pas na nocnej krawędzi (jak na zdjęciach z ISS)
   if (ip > 0.05) {
     const ux = sv.x / ip, uy = -sv.y / ip;
@@ -11529,20 +11682,27 @@ function globeDraw() {
 }
 
 function strokeOrbit(ctx, pts, front) {
+  const B = 8, buckets = [];
   for (let i = 1; i < pts.length; i++) {
     const a = pts[i - 1], b = pts[i];
-    if (Math.hypot(b.sx - a.sx, b.sy - a.sy) > G.W) continue;
-    const both = a.vis && b.vis;
-    if (front && !both) continue;
+    if (Math.abs(b.sx - a.sx) + Math.abs(b.sy - a.sy) > G.W) continue;
+    if (front && !(a.vis && b.vis)) continue;
     const future = b.m > 0, fade = future ? 1 - b.m / 110 : 0.35 + (b.m + 40) / 40 * 0.3;
+    const k = (future ? 0 : B) + Math.min(B - 1, Math.max(0, Math.round(fade * (B - 1))));
+    (buckets[k] || (buckets[k] = [])).push(a.sx, a.sy, b.sx, b.sy);
+  }
+  for (let k = 0; k < buckets.length; k++) {
+    const seg = buckets[k]; if (!seg) continue;
+    const future = k < B, fade = Math.max(0.05, (k % B) / (B - 1));
+    ctx.beginPath();
+    for (let j = 0; j < seg.length; j += 4) { ctx.moveTo(seg[j], seg[j + 1]); ctx.lineTo(seg[j + 2], seg[j + 3]); }
     if (front) {
-      ctx.strokeStyle = future ? 'rgba(76,201,122,' + (0.22 * fade) + ')' : 'rgba(150,170,200,' + (0.12 * fade) + ')';
-      ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke();
-      ctx.strokeStyle = future ? 'rgba(159,255,196,' + (0.9 * fade) + ')' : 'rgba(180,200,230,' + (0.45 * fade) + ')';
+      ctx.strokeStyle = future ? 'rgba(76,201,122,' + (0.22 * fade).toFixed(3) + ')' : 'rgba(150,170,200,' + (0.12 * fade).toFixed(3) + ')';
+      ctx.lineWidth = 5; ctx.stroke();
+      ctx.strokeStyle = future ? 'rgba(159,255,196,' + (0.9 * fade).toFixed(3) + ')' : 'rgba(180,200,230,' + (0.45 * fade).toFixed(3) + ')';
       ctx.lineWidth = 1.4; ctx.stroke();
     } else {
-      ctx.strokeStyle = 'rgba(120,200,160,' + (0.18 * fade) + ')'; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke();
+      ctx.strokeStyle = 'rgba(120,200,160,' + (0.18 * fade).toFixed(3) + ')'; ctx.lineWidth = 1; ctx.stroke();
     }
   }
 }
@@ -11604,7 +11764,8 @@ const MN = {
   lam0: 0, phi0: 0, earthView: true, zoom: 1, zoomT: 1, vLam: 0, vPhi: 0, dragging: false, lastInteract: 0,
   tex: { moon: null }, texV: 0, texHi: false, T: null, buf: null, bctx: null, img: null, view: null, viewKey: '',
   dirty: true, rLam: 999, rPhi: 999, rAt: 0, rTexV: -1, labelsOn: true, visible: false, raf: 0, lastFrame: 0,
-  stars: [], st: null, stAt: 0, hudAt: 0
+  stars: [], st: null, stAt: 0, hudAt: 0,
+  inflight: false, bufGeom: null, bufTexV: -1, reqTexV: -1, recycle: null, wErr: 0
 };
 window.__chronosMoon = MN;   // podgląd stanu w konsoli (diagnostyka)
 
@@ -11635,7 +11796,7 @@ function buildMoonDOM() {
   MN.built = true;
   return true;
 }
-function moonPane() { const b = $('#fxMoonBox'); return b ? b.closest('.tab-pane') : null; }
+function moonPane() { if (!MN.pane) { const b = $('#fxMoonBox'); if (b) MN.pane = b.closest('.tab-pane'); } return MN.pane || null; }
 function moonShouldRun() { const p = moonPane(); return MN.inited && MN.visible && !document.hidden && !!(p && p.classList.contains('active')); }
 function moonKick() { if (!MN.raf && moonShouldRun()) MN.raf = requestAnimationFrame(moonFrame); }
 
@@ -11661,6 +11822,14 @@ function sizeMoon() {
   MN.stars = Array.from({ length: Math.round(W * H / 2400) }, () => ({
     x: Math.random() * W * 2, y: Math.random() * H, r: Math.random() * 1.2 + 0.2, o: Math.random() * 0.55 + 0.12 }));
 }
+function loadMoonTex() {
+  const lbl = $('#fxMTex');
+  if (window.CHRONOS_MOON_FALLBACK) loadTex(window.CHRONOS_MOON_FALLBACK, 256).then(t => { if (!MN.texHi) giveTex(MN, 'moon', 'moon', t); }).catch(() => {});
+  loadTex(TEX_BASE + 'moon_1024.jpg', 1024).then(t => {
+    MN.texHi = true; giveTex(MN, 'moon', 'moon', t);
+    if (lbl) lbl.textContent = '· tekstura LRO ✓';
+  }).catch(() => { if (lbl) lbl.textContent = '· tekstura uproszczona'; });
+}
 function initMoon() {
   if (MN.inited) return;
   if (!MN.built && !buildMoonDOM()) return;
@@ -11669,12 +11838,8 @@ function initMoon() {
   MN.st = fxMoonState(Date.now()); MN.stAt = Date.now();
   MN.lam0 = MN.st.libL; MN.phi0 = MN.st.libB;
   sizeMoon();
-  const lbl = $('#fxMTex');
-  if (window.CHRONOS_MOON_FALLBACK) loadTex(window.CHRONOS_MOON_FALLBACK, 256).then(t => { if (!MN.texHi) { MN.tex.moon = prepMoonTex(t); MN.texV++; } }).catch(() => {});
-  loadTex(TEX_BASE + 'moon_1024.jpg', 1024).then(t => {
-    MN.tex.moon = prepMoonTex(t); MN.texHi = true; MN.texV++;
-    if (lbl) lbl.textContent = '· tekstura LRO ✓';
-  }).catch(() => { if (lbl) lbl.textContent = '· tekstura uproszczona'; });
+  getWorker();
+  loadMoonTex();
   const setEarthBtn = () => { const b = $('#fxMEarth'); if (b) b.classList.toggle('on', MN.earthView); };
   const hide = () => { const h = $('#fxMHint'); if (h) h.style.opacity = '0'; };
   attachControls(c, MN, {
@@ -11697,7 +11862,7 @@ function moonFrame(ts) {
   MN.raf = 0;
   if (!moonShouldRun()) return;
   MN.raf = requestAnimationFrame(moonFrame);
-  if (!MN.dragging && ts - MN.lastFrame < 31) return;
+  if (!RW && !MN.dragging && ts - MN.lastFrame < 31) return;
   const dt = MN.lastFrame ? Math.min(0.1, (ts - MN.lastFrame) / 1000) : 0.033;
   MN.lastFrame = ts;
   safe(() => { moonUpdate(dt); moonDraw(); }, 'moon');
@@ -11719,27 +11884,14 @@ function moonUpdate(dt) {
 function moonDraw() {
   const ctx = MN.ctx, W = MN.W, H = MN.H, now = Date.now(), st = MN.st;
   const cx = W / 2, cy = H / 2 + (W < 700 ? -12 : 0), R = MN.Rbase * MN.zoom;
-  const view = prepView(MN, W, H, cx, cy, R);
-  const needPix = view && (MN.dirty || MN.dragging || MN.rTexV !== MN.texV ||
-    Math.abs(wrap180(MN.lam0 - MN.rLam)) > 0.02 || Math.abs(MN.phi0 - MN.rPhi) > 0.02 || now - MN.rAt > 30000);
-  if (needPix) {
-    fxRenderMoon(MN.img.data, MN.T, MN.tex, { lam0: MN.lam0, sun: st.sun, earthshine: 0.035 + 0.075 * (1 - st.k) });
-    MN.bctx.putImageData(MN.img, 0, 0);
-    MN.dirty = false; MN.rLam = MN.lam0; MN.rPhi = MN.phi0; MN.rAt = now; MN.rTexV = MN.texV;
-  }
-  const lam0 = MN.rLam, phi0 = MN.T ? MN.T.phi : MN.phi0;
+  const es = 0.035 + 0.075 * (1 - st.k);
+  const pv = pixelsStep(MN, 'moon', W, H, cx, cy, R, { sun: st.sun, earthshine: es }, now, 30000,
+    () => fxRenderMoon(MN.img.data, MN.T, MN.tex, { lam0: MN.lam0, sun: st.sun, earthshine: es }));
+  const lam0 = pv.lam, phi0 = pv.phi;
   // tło
-  const bg = ctx.createRadialGradient(cx, cy, R * 0.5, cx, cy, Math.max(W, H) * 0.8);
-  bg.addColorStop(0, '#0a0d1a'); bg.addColorStop(1, '#010207');
-  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+  ctx.drawImage(bgCache(MN, W, H, cx, cy, R, '#0a0d1a', '210,220,255', 0.08 + 0.22 * st.k), 0, 0, W, H);
   drawStars(ctx, MN.stars, W, H, lam0, phi0);
-  // poświata wokół tarczy (silniejsza przy pełni)
-  const halo = 0.08 + 0.22 * st.k;
-  const hg = ctx.createRadialGradient(cx, cy, R * 0.98, cx, cy, R * 1.45);
-  hg.addColorStop(0, 'rgba(210,220,255,' + halo.toFixed(3) + ')'); hg.addColorStop(1, 'rgba(210,220,255,0)');
-  ctx.fillStyle = hg; ctx.beginPath(); ctx.arc(cx, cy, R * 1.45, 0, 6.2832); ctx.fill();
-  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-  if (view) ctx.drawImage(MN.buf, view.x, view.y, view.w, view.h);
+  drawPixels(ctx, MN, cx, cy, R);
   // podpisy
   if (MN.labelsOn) {
     const small = W < 700;
@@ -11779,7 +11931,7 @@ function moonPhaseName(st) {
 }
 function moonHUD(st) {
   const p = $('#fxMPhase'), d = $('#fxMData');
-  const off = Math.abs(wrap180(MN.rLam - st.libL));
+  const off = Math.abs(wrap180((MN.bufGeom ? MN.bufGeom.lam : MN.lam0) - st.libL));
   const far = off > 95 ? '<br><b style="color:#c9a84c">STRONA NIEWIDOCZNA Z ZIEMI</b>' : '';
   if (p) p.innerHTML = '<b>' + moonPhaseName(st) + '</b><br>OŚWIETLENIE <b>' + (st.k * 100).toFixed(1) + '%</b>' + far;
   const sg = v => (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(2) + '°';
