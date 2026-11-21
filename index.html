@@ -49,7 +49,9 @@ header p{font-size:15px;color:var(--text-dim);font-weight:300;letter-spacing:.02
 .year-stat{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:10px 14px;
   font-family:var(--mono);font-size:10px;color:var(--text-dim);min-width:110px;}
 .year-stat strong{display:block;font-size:1.05rem;color:var(--text);margin-bottom:2px;}
-.arc-wrap svg{width:160px;height:160px;}
+.arc-wrap svg{width:160px;height:160px;display:block;}
+.arc-box{position:relative;width:160px;height:160px;}
+.arc-pct{position:absolute;left:0;right:0;top:62px;text-align:center;font-family:var(--mono);font-size:16px;line-height:18px;font-weight:700;color:#e8e4dc;font-variant-numeric:tabular-nums;letter-spacing:-.02em;pointer-events:none;}
 
 /* NEXT UP */
 .next-up{background:linear-gradient(135deg,rgba(201,168,76,.07),rgba(76,123,201,.04));border:1px solid rgba(201,168,76,.18);
@@ -2369,6 +2371,36 @@ img{image-rendering:auto;}
 @media (prefers-reduced-motion: reduce){ body::before{animation:none;} }
 @media (max-width:680px){ body::before{inset:-25%;} }
 </style>
+<style id="chronos-roll-css">
+/* ── Przewijane cyfry: nowa wjeżdża z góry, stara zjeżdża w dół ───────────
+   Własne znaczniki (rl-x/rl-w/rl-d/rl-n), więc reguły typu „.karta span" ich nie dotyczą.
+   Cyfra zostaje zwykłym elementem inline, więc układ jest identyczny jak sam tekst (nic nie
+   drga, cyfra kończy dokładnie na linii bazowej). Nowa wjeżdża przez przesunięcie względne,
+   stara zjeżdża jako ::before. Maska tworzy „okienko licznika" wokół samej cyfry:
+   linia bazowa leży na ~77% pola czcionki (Space Mono 76%, DM Sans 76%, zapasowe 79%),
+   nad nią 1cap wysokości cyfry. Bez jednostki cap — okienko = wysokość linii (lh),
+   bez lh — całe pole czcionki. Każda wersja nadpisuje poprzednią tylko tam, gdzie działa. */
+rl-w{white-space:nowrap;}
+rl-d{position:relative;padding:0 .45em;margin:0 -.45em;
+  -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 .12em,#000 calc(100% - .12em),transparent 100%);
+          mask-image:linear-gradient(to bottom,transparent 0,#000 .12em,#000 calc(100% - .12em),transparent 100%);
+  -webkit-mask-image:linear-gradient(to bottom,transparent max(0px, calc((100% - 1lh) / 2)),#000 calc(max(0px, calc((100% - 1lh) / 2)) + .12em),#000 calc(100% - max(0px, calc((100% - 1lh) / 2)) - .12em),transparent calc(100% - max(0px, calc((100% - 1lh) / 2))));
+          mask-image:linear-gradient(to bottom,transparent max(0px, calc((100% - 1lh) / 2)),#000 calc(max(0px, calc((100% - 1lh) / 2)) + .12em),#000 calc(100% - max(0px, calc((100% - 1lh) / 2)) - .12em),transparent calc(100% - max(0px, calc((100% - 1lh) / 2))));
+  -webkit-mask-image:linear-gradient(to bottom,transparent calc(77% - 1cap - .22em),#000 calc(77% - 1cap - .08em),#000 calc(77% + .06em),transparent calc(77% + .2em));
+          mask-image:linear-gradient(to bottom,transparent calc(77% - 1cap - .22em),#000 calc(77% - 1cap - .08em),#000 calc(77% + .06em),transparent calc(77% + .2em));}
+rl-n{position:relative;animation:rl-in .46s cubic-bezier(.2,.8,.25,1) both;
+  animation-delay:calc(var(--rl-t,0ms) + var(--rl-s,0ms));}
+rl-d::before{content:attr(data-o);position:absolute;left:.45em;right:.45em;top:0;line-height:normal;text-align:center;
+  animation:rl-out .46s cubic-bezier(.2,.8,.25,1) both;
+  animation-delay:calc(var(--rl-t,0ms) + var(--rl-s,0ms));}
+@keyframes rl-in{from{top:-1.05em;opacity:0}55%{opacity:1}to{top:0;opacity:1}}
+@keyframes rl-out{from{transform:none;opacity:1}to{transform:translateY(1.05em);opacity:0}}
+/* tekst z gradientem (background-clip:text) — cyfra w ruchu dostaje pełny kolor */
+.cosmic-hero-num rl-d{-webkit-text-fill-color:#cfe1ff;}
+/* sekundnik w kartach: zamiast powiększenia jest przewijanie, zostaje błysk koloru */
+html.rl-on .digit-val.tick{transform:none;}
+@media (prefers-reduced-motion:reduce){rl-n,rl-d::before{animation:none}rl-d::before{display:none}}
+</style>
 <script id="chronos-hd">/* ═══════════════════════════════════════════════════════════
    CHRONOS HD — ostre canvasy na ekranach Retina / 2K / 4K
    Kod rysujący widzi „logiczne" wymiary (np. 1200×520), a canvas
@@ -2579,7 +2611,7 @@ img{image-rendering:auto;}
       <div class="year-sub">// postęp bieżącego roku</div>
       <div class="year-stats" id="yrStats"></div>
     </div>
-    <div class="arc-wrap">
+    <div class="arc-wrap"><div class="arc-box">
       <svg viewBox="0 0 160 160" xmlns="http://www.w3.org/2000/svg">
         <circle cx="80" cy="80" r="62" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="11"/>
         <circle id="yrArc" cx="80" cy="80" r="62" fill="none" stroke="url(#yrGrad)" stroke-width="11"
@@ -2588,9 +2620,9 @@ img{image-rendering:auto;}
         <defs><linearGradient id="yrGrad" x1="0%" y1="0%" x2="100%" y2="0%">
           <stop offset="0%" stop-color="#c9a84c"/><stop offset="100%" stop-color="#4c7bc9"/>
         </linearGradient></defs>
-        <text id="yrPct" x="80" y="76" font-family="Space Mono" font-size="19" font-weight="700" fill="#e8e4dc" text-anchor="middle">0%</text>
         <text x="80" y="94" font-family="Space Mono" font-size="8" fill="rgba(232,228,220,0.45)" text-anchor="middle">MINĘŁO</text>
       </svg>
+      <div class="arc-pct" id="yrPct">0%</div></div>
     </div>
   </div>
 
@@ -3970,16 +4002,16 @@ img{image-rendering:auto;}
     <div class="ss-voyager-box">
       <div class="ss-voyager-title">🚀 Voyager 1 — poza Układem Słonecznym</div>
       <div class="ss-voyager-grid">
-        <div class="ss-v-stat"><div class="ss-v-val" id="ssv1_dist">—</div><div class="ss-v-lbl">Odległość od Słońca</div></div>
+        <div class="ss-v-stat"><div class="ss-v-val" id="ssv1_dist">—</div><div class="ss-v-lbl">Odległość od Słońca (km)</div></div>
         <div class="ss-v-stat"><div class="ss-v-val" id="ssv1_au">—</div><div class="ss-v-lbl">W jednostkach AU</div></div>
-        <div class="ss-v-stat"><div class="ss-v-val" id="ssv1_lt">—</div><div class="ss-v-lbl">Czas sygnału (h)</div></div>
+        <div class="ss-v-stat"><div class="ss-v-val" id="ssv1_lt">—</div><div class="ss-v-lbl">Czas sygnału</div></div>
         <div class="ss-v-stat"><div class="ss-v-val" id="ssv1_speed">17,02 km/s</div><div class="ss-v-lbl">Prędkość</div></div>
       </div>
       <div class="ss-voyager-title" style="margin-top:20px;">🚀 Voyager 2 — poza heliosferą</div>
       <div class="ss-voyager-grid">
-        <div class="ss-v-stat"><div class="ss-v-val" id="ssv2_dist">—</div><div class="ss-v-lbl">Odległość od Słońca</div></div>
+        <div class="ss-v-stat"><div class="ss-v-val" id="ssv2_dist">—</div><div class="ss-v-lbl">Odległość od Słońca (km)</div></div>
         <div class="ss-v-stat"><div class="ss-v-val" id="ssv2_au">—</div><div class="ss-v-lbl">W jednostkach AU</div></div>
-        <div class="ss-v-stat"><div class="ss-v-val" id="ssv2_lt">—</div><div class="ss-v-lbl">Czas sygnału (h)</div></div>
+        <div class="ss-v-stat"><div class="ss-v-val" id="ssv2_lt">—</div><div class="ss-v-lbl">Czas sygnału</div></div>
         <div class="ss-v-stat"><div class="ss-v-val" id="ssv2_speed">15,34 km/s</div><div class="ss-v-lbl">Prędkość</div></div>
       </div>
     </div>
@@ -5688,7 +5720,7 @@ function updateYear(){
   const p=((now-start)/(end-start))*100;
   const arc=document.getElementById('yrArc');
   if(arc)arc.style.strokeDashoffset=389.56*(1-p/100);
-  const pe=document.getElementById('yrPct');if(pe)pe.textContent=p.toFixed(1)+'%';
+  const pe=document.getElementById('yrPct'),pv=p.toFixed(4)+'%';if(pe&&pe.textContent!==pv)pe.textContent=pv;
   document.getElementById('yrNum').textContent=yr;
   const day=Math.floor((now-start)/86400000)+1,dLeft=Math.ceil((end-now)/86400000),wk=Math.ceil(day/7),si=Math.floor((now-start)/1000);
   document.getElementById('yrStats').innerHTML=`
@@ -8484,19 +8516,22 @@ function ssSolarUpdateDate() {
 }
 
 function ssUpdateHeroStats() {
-  // Earth distance from Sun varies (perihelion 147.1M km, aphelion 152.1M km)
-  const dayOfYear = Math.floor((ssDate - new Date(ssDate.getFullYear(),0,1)) / 86400000);
-  const earthKm = Math.round(149597870 - 2500000 * Math.cos(2 * Math.PI * dayOfYear / 365.25));
-  const speedKms = (2 * Math.PI * earthKm / 365.25 / 86400).toFixed(2);
-  const lightSec = Math.round(earthKm / 299792);
+  // Ziemia–Słońce w czasie ciągłym (wzór Almanachu Astronomicznego, peryhelium ~3 I),
+  // prędkość z równania vis-viva: najszybciej w peryhelium, najwolniej w aphelium.
+  const jd2k = ssDate.getTime() / 86400000 + 2440587.5 - 2451545;
+  const g    = (357.529 + 0.98560028 * jd2k) * Math.PI / 180;
+  const rAU  = 1.00014 - 0.01671 * Math.cos(g) - 0.00014 * Math.cos(2 * g);
+  const earthKm  = Math.round(rAU * SS_AU);
+  const speedKms = Math.sqrt(1.32712440018e11 * (2 / (rAU * SS_AU) - 1 / (1.00000261 * SS_AU))).toFixed(2);
+  const lightSec = Math.round(earthKm / 299792.458);
   const lightMin = Math.floor(lightSec / 60), lightSecR = lightSec % 60;
 
-  function sv(id, v) { const el=document.getElementById(id); if(el) el.textContent=v; }
-  sv('ssh_earth_km', earthKm.toLocaleString('pl-PL') + ' km');
+  function sv(id, v) { const el=document.getElementById(id); if(el && el.textContent!==v) el.textContent=v; }
+  sv('ssh_earth_km', earthKm.toLocaleString('pl-PL'));   // jednostka jest w etykiecie „(km)”
   sv('ssh_earth_ms', speedKms + ' km/s');
-  sv('ssh_light',    lightMin + 'min ' + lightSecR + 's');
+  sv('ssh_light',    lightMin + 'min ' + String(lightSecR).padStart(2, '0') + 's');
 
-  // Voyager 1 & 2 live positions
+  // Voyager 1 i 2 — odległość co do kilometra (ok. 17 i 15 km co sekundę)
   const now = Date.now();
   const v1Days = (now - V1_REF_DATE) / 86400000;
   const v1AU   = V1_REF_AU + v1Days * V1_SPEED_AU;
@@ -8504,13 +8539,15 @@ function ssUpdateHeroStats() {
   const v2Days = (now - V2_REF_DATE) / 86400000;
   const v2AU   = V2_REF_AU + v2Days * V2_SPEED_AU;
   const v2Km   = v2AU * SS_AU;
+  const sig = km => { const t = Math.round(km / 299792.458), p2 = n => String(n).padStart(2, '0');
+    return Math.floor(t / 3600) + 'h ' + p2(Math.floor(t % 3600 / 60)) + 'm ' + p2(t % 60) + 's'; };
 
-  sv('ssv1_dist', (v1Km/1e9).toFixed(3) + ' mld km');
+  sv('ssv1_dist', Math.round(v1Km).toLocaleString('pl-PL'));
   sv('ssv1_au',   v1AU.toFixed(2) + ' AU');
-  sv('ssv1_lt',   (v1Km / (299792 * 3600)).toFixed(1) + ' h');
-  sv('ssv2_dist', (v2Km/1e9).toFixed(3) + ' mld km');
+  sv('ssv1_lt',   sig(v1Km));
+  sv('ssv2_dist', Math.round(v2Km).toLocaleString('pl-PL'));
   sv('ssv2_au',   v2AU.toFixed(2) + ' AU');
-  sv('ssv2_lt',   (v2Km / (299792 * 3600)).toFixed(1) + ' h');
+  sv('ssv2_lt',   sig(v2Km));
 }
 
 function ssBuildPlanets() {
@@ -8910,40 +8947,69 @@ function issUpdateHero() {
     : Math.abs(issPos.lon).toFixed(3)+'°W');
 }
 
+// Następny przelot = najbliższe podejście ISS (lokalne minimum odległości) w ciągu ~1,8 h,
+// liczone tym samym modelem TLE co globus 3D. Wynik jest „zablokowany" aż do przelotu,
+// więc „Za ile czasu" maleje płynnie co sekundę zamiast skakać przy każdym odświeżeniu.
+const ISS_PASS_WIN  = 110;          // okno wyszukiwania [min]
+const ISS_PASS_HOLD = 3 * 60000;    // tyle po najbliższym podejściu pokazujemy „teraz!"
+let issPass = null, issPassNoteHtml = '';
+
+function issPosAt(ms) {
+  if (_issTLE) {
+    try { const p = calcFromTLE(_issTLE[0], _issTLE[1], ms); if (isFinite(p.lat) && Math.abs(p.lat) <= 90) return p; } catch (e) {}
+  }
+  return calcOrbital(ms);
+}
+
+function issFindPass(from) {
+  const dAt = t => { const p = issPosAt(t); return haversine(p.lat, p.lon, sunLat, sunLon); };
+  const ds = [];
+  for (let m = 0; m <= ISS_PASS_WIN; m++) ds.push(dAt(from + m * 60000));
+  let bi = -1;
+  for (let i = 1; i < ds.length - 1; i++)
+    if (ds[i] <= ds[i - 1] && ds[i] < ds[i + 1] && (bi < 0 || ds[i] < ds[bi])) bi = i;
+  if (bi < 0) { bi = 1; for (let i = 2; i < ds.length; i++) if (ds[i] < ds[bi]) bi = i; }
+  let bt = from + bi * 60000, bd = ds[bi];
+  for (let s = -60; s <= 60; s += 5) {          // doprecyzowanie co 5 s
+    const t = from + bi * 60000 + s * 1000; if (t <= from) continue;
+    const d = dAt(t); if (d < bd) { bd = d; bt = t; }
+  }
+  return { t: bt, dist: bd, from, lat: sunLat, lon: sunLon, src: _issTLE ? _issTLE[0] : 'orb' };
+}
+
+function issFmtLeft(ms) {
+  const t = Math.ceil(ms / 1000), h = Math.floor(t / 3600), m = Math.floor(t % 3600 / 60), s = t % 60;
+  const p2 = n => String(n).padStart(2, '0');
+  return h ? h + 'h ' + p2(m) + 'm ' + p2(s) + 's' : m + 'm ' + p2(s) + 's';
+}
+
 function issUpdatePass() {
-  if (!issTrack.length || sunLat == null) {
-    const note = document.getElementById('issPassNote');
+  const note = document.getElementById('issPassNote');
+  if (sunLat == null) {
     if (note) note.textContent = '📡 Udostępnij lokalizację aby zobaczyć prognozę przelotu.';
+    issPassNoteHtml = '';
     return;
   }
+  const now = Date.now(), src = _issTLE ? _issTLE[0] : 'orb';
+  if (!issPass || now > issPass.t + ISS_PASS_HOLD || issPass.lat !== sunLat || issPass.lon !== sunLon || issPass.src !== src)
+    issPass = issFindPass(now);
+  const left = issPass.t - now, minDist = issPass.dist;
 
-  let minDist = Infinity, minIdx = 0;
-  issTrack.forEach((p,i) => {
-    const d = haversine(p.lat, p.lon, sunLat, sunLon);
-    if (d < minDist) { minDist = d; minIdx = i; }
-  });
-
-  const minsAway = minIdx * 2;
-  const passTime = new Date(Date.now() + minsAway*60000);
-  const hh = String(Math.floor(minsAway/60)).padStart(2,'0');
-  const mm = String(minsAway%60).padStart(2,'0');
-
-  function sv(id,v){ const e=document.getElementById(id); if(e) e.textContent=v; }
-  sv('iss_pass_time', passTime.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'}));
-  sv('iss_pass_in',   minsAway < 60 ? minsAway+' min' : hh+'h '+mm+'min');
+  function sv(id,v){ const e=document.getElementById(id); if(e && e.textContent!==v) e.textContent=v; }
+  sv('iss_pass_time', new Date(issPass.t).toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'}));
+  sv('iss_pass_in',   left > 0 ? issFmtLeft(left) : 'teraz!');
   sv('iss_pass_dist', Math.round(minDist).toLocaleString('pl-PL')+' km');
 
   const bar = document.getElementById('iss_pass_bar');
   if (bar) {
-    const total = issTrack.length * 2 * 60000;
-    const pct   = Math.max(0, Math.min(99, (1 - (minsAway*60000)/total)*100));
-    bar.style.width = pct.toFixed(1)+'%';
+    const pct = Math.max(0, Math.min(100, (now - issPass.from) / Math.max(1, issPass.t - issPass.from) * 100));
+    bar.style.width = pct.toFixed(2)+'%';
   }
 
-  const note = document.getElementById('issPassNote');
-  if (note) note.innerHTML = minDist < 2200
+  const html = minDist < 2200
     ? '👁️ <strong>Przelot widoczny gołym okiem</strong> — szukaj jasnego punktu poruszającego się po niebie. Przelot trwa ok. 6 minut.'
     : `🔭 Przelot <strong>${Math.round(minDist).toLocaleString('pl-PL')} km</strong> od Twojej lokalizacji. Następny bliższy za ok. ${Math.round(ISS_PERIOD)} min.`;
+  if (note && html !== issPassNoteHtml) { note.innerHTML = html; issPassNoteHtml = html; }
 }
 
 // ── ISS Position — TLE from API + orbital fallback ────────────
@@ -8966,7 +9032,8 @@ async function refreshTLE() {
   return null;
 }
 
-function calcFromTLE(l1, l2) {
+function calcFromTLE(l1, l2, ms) {
+  const tNow = ms == null ? Date.now() : ms;
   function d2r(d){ return d*Math.PI/180; }
   function r2d(r){ return r*180/Math.PI; }
   const incl=d2r(parseFloat(l2.substring(8,16))), raan=d2r(parseFloat(l2.substring(17,25)));
@@ -8978,7 +9045,7 @@ function calcFromTLE(l1, l2) {
   const epDOY=parseFloat(epStr.substring(2));
   const fy=epYr<57?2000+epYr:1900+epYr;
   const epoch=Date.UTC(fy,0,1)+(epDOY-1)*86400000;
-  const dtDays=(Date.now()-epoch)/86400000;
+  const dtDays=(tNow-epoch)/86400000;
   const M=((M0+mmRPD*2*Math.PI*dtDays)%(2*Math.PI)+2*Math.PI)%(2*Math.PI);
   let E=M; for(let i=0;i<15;i++) E-=(E-ecc*Math.sin(E)-M)/(1-ecc*Math.cos(E));
   const nu=2*Math.atan2(Math.sqrt(1+ecc)*Math.sin(E/2),Math.sqrt(1-ecc)*Math.cos(E/2));
@@ -8988,15 +9055,15 @@ function calcFromTLE(l1, l2) {
   const xI=(cR*cA-sR*sA*cI)*xp+(-cR*sA-sR*cA*cI)*yp;
   const yI=(sR*cA+cR*sA*cI)*xp+(-sR*sA+cR*cA*cI)*yp;
   const zI=(sA*sI)*xp+(cA*sI)*yp;
-  const jd=Date.now()/86400000+2440587.5, T=(jd-2451545)/36525;
+  const jd=tNow/86400000+2440587.5, T=(jd-2451545)/36525;
   const gst=((280.46061837+360.98564736629*(jd-2451545)+0.000387933*T*T)%360+360)%360*Math.PI/180;
   const xE=xI*Math.cos(gst)+yI*Math.sin(gst), yE=-xI*Math.sin(gst)+yI*Math.cos(gst), zE=zI;
   const lon=r2d(Math.atan2(yE,xE)), lat=r2d(Math.atan2(zE,Math.sqrt(xE*xE+yE*yE)));
   return { lat, lon, alt: r-6371, vel: nS*a*3600 };
 }
 
-function calcOrbital() {
-  const now=Date.now(), d2r=d=>d*Math.PI/180, r2d=r=>r*180/Math.PI;
+function calcOrbital(ms) {
+  const now=ms==null?Date.now():ms, d2r=d=>d*Math.PI/180, r2d=r=>r*180/Math.PI;
   const INCL=d2r(51.6), MM=15.50, PERIOD=1440/MM;
   const REF=new Date('2024-01-01T00:00:00Z').getTime();
   const dtMin=(now-REF)/60000;
@@ -9092,15 +9159,17 @@ async function fetchISSCrew() {
   return [];
 }
 
-// Czas od startu: „51 dni 6 godz. 12 min"
+// Czas od startu: „51 dni 06:12:09" — odświeżany co sekundę
 function crewOnboard(launchIso) {
   const ms = Date.now() - Date.parse(launchIso);
   if (!(ms > 0)) return '';
-  const d = Math.floor(ms / 86400000), h = Math.floor(ms % 86400000 / 3600000), m = Math.floor(ms % 3600000 / 60000);
-  return (d ? d + (d === 1 ? ' dzień ' : ' dni ') : '') + h + ' godz. ' + String(m).padStart(2, '0') + ' min';
+  const d = Math.floor(ms / 86400000), p2 = n => String(n).padStart(2, '0');
+  const h = Math.floor(ms % 86400000 / 3600000), m = Math.floor(ms % 3600000 / 60000), s = Math.floor(ms % 60000 / 1000);
+  return (d ? d + (d === 1 ? ' dzień ' : ' dni ') : '') + p2(h) + ':' + p2(m) + ':' + p2(s);
 }
 let crewTimer = null;
 function crewTick() {
+  if (document.hidden) return;
   document.querySelectorAll('.iss-crew-time[data-launch]').forEach(el => {
     const t = crewOnboard(el.dataset.launch);
     const v = el.querySelector('b'); if (v && v.textContent !== t) v.textContent = t;
@@ -9140,7 +9209,7 @@ function issRenderCrew(crew) {
 
   const el=document.getElementById('iss_crew_n');
   if(el) el.textContent=crew.length;
-  if (!crewTimer) crewTimer = setInterval(crewTick, 30000);
+  if (!crewTimer) crewTimer = setInterval(crewTick, 1000);
 
   // Zdjęcia z Wikipedii dla osób bez zdjęcia w bazie
   crew.forEach((p,i)=>{
@@ -9174,6 +9243,7 @@ async function initISSTab() {
 
   // Repeat every 5 seconds
   issInterval = setInterval(issTick, 3000); // 3s for smoother live movement
+  setInterval(() => { if (!document.hidden && issPos) issUpdatePass(); }, 1000);
 
   // Resize handler
 }
@@ -9305,7 +9375,7 @@ function discNever() {
                    : distKm > 405000 ? '🔵 Apogeum — daleko'
                    : 'Średnia odległość';
 
-    function sv(id,v){ const e=document.getElementById(id); if(e) e.textContent=v; }
+    function sv(id,v){ const e=document.getElementById(id); if(e && e.textContent!==v) e.textContent=v; }
     sv('moonBigEmoji',   PHASES[idx]);
     sv('moonBigName',    NAMES[idx]);
     sv('moonBigPct',     'Oświetlenie: '+(Math.round(illum*100))+'%');
@@ -9344,7 +9414,7 @@ function discNever() {
   }
 
   update();
-  setInterval(update, 5 * 60000);
+  setInterval(() => { if (!document.hidden) update(); }, 10000);   // odległość zmienia się o ~1 km co kilkanaście s
 })();
 
 
@@ -11903,6 +11973,164 @@ if (document.readyState === 'loading') document.addEventListener('DOMContentLoad
 
 })();
 
+</script>
+<script id="chronos-roll">
+/* ═══════════════════════════════════════════════════════════
+   CHRONOS · przewijane cyfry
+   Jedna obserwacja zmian tekstu na całej stronie: gdy w liczbie zmieni się
+   cyfra, nowa wjeżdża z góry, a stara zjeżdża w dół (od prawej, jak licznik).
+   Kod, który aktualizuje liczby, nie musi nic wiedzieć — wystarczy, że ustawia
+   textContent / innerHTML. Szybkie liczniki (zmiany częściej niż co ~0,6 s),
+   elementy poza ekranem, ukryte zakładki i „ogranicz ruch" w systemie są pomijane.
+   ═══════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+  if (!('MutationObserver' in window) || !document.body) return;
+  const mq   = window.matchMedia ? matchMedia('(prefers-reduced-motion: reduce)') : null;
+  const DUR  = 460;     // ms, jak w CSS
+  const STEP = 28;      // ms opóźnienia między kolejnymi cyframi (od prawej)
+  const FAST = 600;     // zmiany częstsze = szybki licznik, bez animacji
+  const SKIP = 'svg,script,style,textarea,select,option,canvas,[contenteditable],.no-roll,#pane_sim';
+  const SKIP_TAGS = new Set(['svg', 'script', 'style', 'textarea', 'select', 'option', 'canvas', 'noscript', 'template']);
+  const KEEP = 1000;    // ms po animacji, zanim przywrócimy zwykły tekst (zwykle robi to wcześniej sam licznik)
+  const store = new WeakMap();   // kotwica → Map(indeks liścia → stan)
+  const live  = new Set();       // elementy z naszymi znacznikami
+  // widoczność kotwic: animujemy tylko to, co jest (prawie) na ekranie
+  const seenIO = new WeakMap();
+  const io = 'IntersectionObserver' in window
+    ? new IntersectionObserver(es => { for (const e of es) seenIO.set(e.target, e.isIntersecting); }, { rootMargin: '150px 0px' })
+    : null;
+  function onScreen(a) {
+    if (!io) return true;
+    const v = seenIO.get(a);
+    if (v === undefined) { seenIO.set(a, false); io.observe(a); return false; }
+    return v;
+  }
+  let sweepT = 0, mo = null;
+  const now  = () => performance.now();
+  const isD  = c => c >= '0' && c <= '9';
+  const isWS = c => c === ' ' || c === '\n' || c === '\t' || c === '\r';
+  const hasD = t => /\d/.test(t);
+
+  // liść = element bez dzieci-elementów (albo tylko z naszym opakowaniem <rl-x>)
+  function leaf(el) {
+    const c = el.firstElementChild;
+    return !c || (c.localName === 'rl-x' && !c.nextElementSibling);
+  }
+  function leaves(anchor, out) {
+    const tw = document.createTreeWalker(anchor, NodeFilter.SHOW_ELEMENT, {
+      acceptNode(e) {
+        if (SKIP_TAGS.has(e.localName) || e.id === 'pane_sim' || e.classList.contains('no-roll')) return NodeFilter.FILTER_REJECT;
+        if (leaf(e)) { out.push(e); return NodeFilter.FILTER_REJECT; }
+        return NodeFilter.FILTER_SKIP;
+      }
+    });
+    while (tw.nextNode()) {}
+  }
+  const sigOf = el => el.localName + ':' + (el.id || el.classList[0] || '');
+
+  function paint(el, txt, old, elapsed) {
+    const n = txt.length, off = old.length - n;
+    let changed = null, cnt = 0;
+    for (let i = n - 1; i >= 0; i--) {
+      if (isD(txt[i]) && txt[i] !== old[i + off]) { (changed || (changed = new Int8Array(n).fill(-1)))[i] = Math.min(cnt++, 5); }
+    }
+    if (!changed) return 0;
+    const box = document.createElement('rl-x');
+    if (elapsed) box.style.setProperty('--rl-t', -Math.round(elapsed) + 'ms');
+    let i = 0;
+    while (i < n) {
+      let j = i;
+      if (isWS(txt[i])) { while (j < n && isWS(txt[j])) j++; box.appendChild(document.createTextNode(txt.slice(i, j))); i = j; continue; }
+      while (j < n && !isWS(txt[j])) j++;
+      let any = false; for (let k = i; k < j; k++) if (changed[k] >= 0) { any = true; break; }
+      if (!any) { box.appendChild(document.createTextNode(txt.slice(i, j))); i = j; continue; }
+      const w = document.createElement('rl-w');
+      let run = '';
+      for (let k = i; k < j; k++) {
+        if (changed[k] < 0) { run += txt[k]; continue; }
+        if (run) { w.appendChild(document.createTextNode(run)); run = ''; }
+        const r = document.createElement('rl-d');
+        const o = old[k + off]; if (o !== undefined && isD(o)) r.setAttribute('data-o', o);
+        if (changed[k]) r.style.setProperty('--rl-s', changed[k] * STEP + 'ms');
+        const d = document.createElement('rl-n'); d.textContent = txt[k];
+        r.appendChild(d); w.appendChild(r);
+      }
+      if (run) w.appendChild(document.createTextNode(run));
+      box.appendChild(w); i = j;
+    }
+    el.textContent = ''; el.appendChild(box);
+    const end = now() + DUR + Math.min(cnt - 1, 5) * STEP - elapsed + 30;
+    el.__rlEnd = end; live.add(el);
+    if (!sweepT) sweepT = setTimeout(sweep, Math.max(60, end + KEEP - now()));
+    return end;
+  }
+
+  // po animacji: z powrotem zwykły tekst (czysty DOM, bez warstw maski). Liczniki
+  // odświeżane co sekundę i tak nadpisują swój tekst wcześniej — wtedy nie ma tu nic do roboty.
+  function sweep() {
+    sweepT = 0;
+    const t = now(); let next = Infinity;
+    for (const el of live) {
+      if (!el.isConnected || !el.firstElementChild) { live.delete(el); continue; }
+      if (t < el.__rlEnd + KEEP) { next = Math.min(next, el.__rlEnd + KEEP); continue; }
+      if (el.firstElementChild && leaf(el)) el.textContent = el.textContent;
+      live.delete(el);
+    }
+    if (mo) mo.takeRecords();
+    if (next < Infinity) sweepT = setTimeout(sweep, Math.max(40, next - t));
+  }
+
+  function scan(anchor, t, animate) {
+    let m = store.get(anchor); if (!m) store.set(anchor, m = new Map());
+    const list = [];
+    if (leaf(anchor)) list.push(anchor); else leaves(anchor, list);
+    for (let i = 0; i < list.length; i++) {
+      const el = list[i], txt = el.textContent, sig = sigOf(el);
+      const st = m.get(i);
+      if (!st || st.sig !== sig) { m.set(i, { sig, txt, at: t, t0: 0, end: 0, old: '' }); continue; }
+      if (txt === st.txt) {
+        // ten sam tekst wpisany ponownie w trakcie animacji → dokończ ją bez skoku
+        if (animate && t < st.end && !el.firstElementChild) paint(el, txt, st.old, t - st.t0);
+        continue;
+      }
+      const prev = st.txt, fast = t - st.at < FAST;
+      st.txt = txt; st.at = t; st.end = 0;
+      if (!animate || fast || !hasD(prev) || !hasD(txt) || txt.length > 160) continue;
+      const end = paint(el, txt, prev, 0);
+      if (end) { st.t0 = t; st.end = end; st.old = prev; }
+    }
+    if (m.size > list.length) for (const k of m.keys()) if (k >= list.length) m.delete(k);
+  }
+
+  function onMut(recs) {
+    if (document.hidden) return;
+    const t = now(), motion = !(mq && mq.matches), seen = new Set();
+    for (let r = 0; r < recs.length; r++) {
+      const rec = recs[r];
+      let a = rec.target;
+      if (rec.type === 'characterData') a = a.parentElement;
+      else if (a.nodeType !== 1) continue;
+      if (!a || seen.has(a)) continue;
+      // liść (ustawiony textContent) albo w całości przebudowany kontener (innerHTML)
+      if (leaf(a) || (rec.addedNodes.length && rec.addedNodes.length === a.childNodes.length)) seen.add(a);
+    }
+    for (const a of seen) {
+      if (!a.isConnected || a.closest(SKIP)) continue;
+      const pane = a.closest('.tab-pane');
+      if (pane && !pane.classList.contains('active')) { store.delete(a); continue; }
+      scan(a, t, motion && onScreen(a));   // poza ekranem tylko zapamiętujemy wartość
+    }
+    mo.takeRecords();
+  }
+
+  try {
+    mo = new MutationObserver(onMut);
+    mo.observe(document.body, { childList: true, characterData: true, subtree: true });
+    document.documentElement.classList.add('rl-on');
+    window.__chronosRoll = { live: () => live.size };
+  } catch (e) { console.warn('[CHRONOS] roll:', e); }
+})();
 </script>
 </body>
 </html>
