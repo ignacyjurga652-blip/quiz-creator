@@ -946,7 +946,9 @@ footer{text-align:center;padding:40px 24px 60px;font-family:var(--mono);font-siz
 .moon-section{margin-bottom:80px;position:relative;z-index:1;}
 .moon-big-box{background:var(--card);border:1px solid var(--card-border);border-radius:20px;overflow:hidden;position:relative;}
 .moon-big-box::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#6d9ee8,#8a6cc9,#4cc9c9);}
-.moon-layout{display:grid;grid-template-columns:auto 1fr;gap:0;align-items:stretch;}
+.moon-layout{display:grid;grid-template-columns:1fr;gap:0;align-items:stretch;}
+.moon-now{display:flex;align-items:center;gap:14px;padding-bottom:14px;border-bottom:1px solid var(--card-border);}
+.moon-now .moon-phase-name-big,.moon-now .moon-phase-pct{text-align:left;}
 .moon-canvas-col{padding:36px 28px;border-right:1px solid var(--card-border);display:flex;flex-direction:column;align-items:center;gap:16px;background:radial-gradient(ellipse 80% 80% at 50% 40%,rgba(100,130,200,0.06),transparent);}
 .moon-phase-emoji{font-size:2rem;}
 .moon-phase-name-big{font-family:var(--serif);font-size:1.6rem;font-weight:300;text-align:center;}
@@ -1507,7 +1509,6 @@ html.is-mobile .apod-footer { flex-wrap: wrap; gap: 8px; }
 
 html.is-mobile .moon-big-box .moon-layout { grid-template-columns: 1fr; }
 html.is-mobile .moon-canvas-col { border-right: none; border-bottom: 1px solid var(--card-border); }
-html.is-mobile #moonBigCanvas { width: 140px !important; height: 140px !important; }
 
 html.is-mobile .ss-hero { grid-template-columns: repeat(2, 1fr); }
 html.is-mobile #ssCanvas { height: 220px !important; }
@@ -2053,6 +2054,29 @@ html.is-desktop .tab-nav-inner { gap: 4px; }
 .hist-future .hist-card { opacity:.7; }
 .hist-future .hist-card-title { font-style:italic; }
 
+
+/* ── Data niepewna: żółty pulsujący wykrzyknik ─────────────── */
+.tbd-wrap{position:absolute;top:9px;left:9px;z-index:6;}
+.tbd-btn{width:21px;height:21px;border-radius:50%;padding:0;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(circle at 35% 30%,#ffe78a,#f5c542 55%,#d99a1c);border:1px solid rgba(255,236,160,.75);
+  color:#2a1d00;font:700 13px/1 var(--mono);box-shadow:0 0 0 0 rgba(245,197,66,.55),0 0 12px rgba(245,197,66,.45);
+  animation:tbdPulse 1.8s ease-out infinite;-webkit-tap-highlight-color:transparent;}
+.tbd-btn:focus-visible{outline:2px solid #fff3c4;outline-offset:2px;}
+@keyframes tbdPulse{
+  0%{box-shadow:0 0 0 0 rgba(245,197,66,.6),0 0 12px rgba(245,197,66,.45);transform:scale(1);}
+  50%{transform:scale(1.08);}
+  70%{box-shadow:0 0 0 9px rgba(245,197,66,0),0 0 18px rgba(245,197,66,.6);}
+  100%{box-shadow:0 0 0 0 rgba(245,197,66,0),0 0 12px rgba(245,197,66,.45);transform:scale(1);}}
+.tbd-tip{display:none;position:absolute;top:calc(100% + 9px);left:0;width:min(270px,calc(100vw - 72px));
+  background:#120e03;border:1px solid rgba(245,197,66,.45);border-radius:12px;padding:12px 14px;isolation:isolate;
+  font-family:var(--mono);font-size:11px;line-height:1.7;letter-spacing:.02em;color:var(--text-dim);
+  box-shadow:0 10px 34px rgba(0,0,0,.6);text-align:left;cursor:default;}
+.tbd-tip::before{content:'';position:absolute;bottom:100%;left:5px;border:6px solid transparent;border-bottom-color:rgba(245,197,66,.45);}
+.tbd-tip strong{color:#f5c542;}
+.tbd-wrap.active .tbd-tip,.tbd-btn:focus-visible + .tbd-tip{display:block;animation:tbdTipIn .2s cubic-bezier(.16,1,.3,1);}
+@media (hover:hover) and (pointer:fine){.tbd-wrap:hover .tbd-tip{display:block;animation:tbdTipIn .2s cubic-bezier(.16,1,.3,1);}}
+@keyframes tbdTipIn{from{opacity:0;transform:translateY(-5px);}to{opacity:1;transform:none;}}
+@media (prefers-reduced-motion:reduce){.tbd-btn{animation:none;}}
 </style>
   <!-- Leaflet.js for ISS + Earthquake maps -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -2169,6 +2193,10 @@ html.fx-fine .card.fx-hot,html.fx-fine .about-stat-card.fx-hot,html.fx-fine .abo
   border:1px solid rgba(255,255,255,.18);border-bottom-width:2px;background:rgba(255,255,255,.04);color:var(--text);}
 
 /* ── WIDOK 3D ISS ───────────────────────────────────────── */
+.fx-globe-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:-28px 4px 40px;font-family:var(--mono);font-size:9px;letter-spacing:.12em;color:var(--text-dim);}
+.fx-globe-foot button{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);color:var(--text-dim);border-radius:7px;padding:5px 11px;font-family:var(--mono);font-size:9px;letter-spacing:.1em;cursor:pointer;transition:all .2s;}
+.fx-globe-foot button:hover{color:var(--text);border-color:rgba(255,255,255,.3);}
+.fx-moon-box{margin-bottom:22px;}
 .fx-globe-box{position:relative;border-radius:20px;overflow:hidden;margin-bottom:40px;
   background:#020309;border:1px solid rgba(76,123,201,.22);
   box-shadow:0 30px 80px rgba(0,0,0,.45),inset 0 0 120px rgba(40,80,160,.08);}
@@ -2865,13 +2893,14 @@ img{image-rendering:auto;}
     </div>
     <div class="moon-big-box">
       <div class="moon-layout">
-        <div class="moon-canvas-col">
-          <canvas id="moonBigCanvas" width="180" height="180" style="border-radius:50%;"></canvas>
-          <div class="moon-phase-emoji" id="moonBigEmoji">🌕</div>
-          <div class="moon-phase-name-big" id="moonBigName">—</div>
-          <div class="moon-phase-pct" id="moonBigPct">—</div>
-        </div>
         <div class="moon-info-col">
+          <div class="moon-now">
+            <div class="moon-phase-emoji" id="moonBigEmoji">🌕</div>
+            <div>
+              <div class="moon-phase-name-big" id="moonBigName">—</div>
+              <div class="moon-phase-pct" id="moonBigPct">—</div>
+            </div>
+          </div>
           <div class="moon-info-grid">
             <div class="moon-info-tile">
               <div class="moon-info-icon">🌑</div>
@@ -4038,26 +4067,9 @@ img{image-rendering:auto;}
     <!-- LIVE MAP -->
     <div class="section-head">
       <h2 class="section-title">Pozycja ISS na żywo</h2>
-      <p class="section-sub">// Aktualizacja co 5 sekund · Tor lotu — następne 90 minut</p>
+      <p class="section-sub">// Globus 3D · tekstura NASA Blue Marble · orbita z danych TLE na następne 95 minut</p>
     </div>
-    <div class="iss-map-box">
-      <div class="iss-map-top">
-        <div>
-          <div class="iss-map-title">🛸 International Space Station</div>
-        </div>
-        <div class="iss-map-live">
-          <span class="live-dot"></span> Na żywo
-        </div>
-      </div>
-      <div id="issLeafletMap" class="iss-map-div"></div>
-      <div class="iss-map-legend">
-        <div class="iss-leg"><div class="iss-leg-dot" style="background:#4cc97a;box-shadow:0 0 6px #4cc97a"></div>ISS (aktualna pozycja)</div>
-        <div class="iss-leg"><div class="iss-leg-dot" style="background:rgba(76,201,122,.3);"></div>Tor lotu (90 min)</div>
-        <div class="iss-leg"><div class="iss-leg-dot" style="background:#c9a84c"></div>Twoja lokalizacja</div>
-        <div class="iss-leg"><div class="iss-leg-dot" style="background:rgba(255,255,255,.08)"></div>Strefa nocna</div>
-        <button onclick="issResetLocation()" style="margin-left:auto;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);color:var(--text-dim);border-radius:6px;padding:4px 10px;font-family:var(--mono);font-size:9px;letter-spacing:.1em;cursor:pointer;" title="Zresetuj lokalizację">↺ Resetuj lokalizację</button>
-      </div>
-    </div>
+    <div id="fxGlobeSlot"></div>
 
     <!-- NEXT PASS -->
     <div class="section-head">
@@ -4306,7 +4318,7 @@ img{image-rendering:auto;}
       <div class="about-feature" style="--fc:#c94c4c">
         <div class="about-feature-icon">🗺️</div>
         <div class="about-feature-title">Mapy na żywo</div>
-        <div class="about-feature-body">Mapa ISS i trzęsień ziemi oparta na Leaflet.js z kafelkami OpenStreetMap cieniowanymi filtrem CSS. Trzęsienia ziemi — dane USGS aktualizowane co 10 minut, zasięg ostatnich 24h.</div>
+        <div class="about-feature-body">ISS na trójwymiarowym globusie z teksturą NASA. Mapa trzęsień ziemi oparta na Leaflet.js z kafelkami OpenStreetMap cieniowanymi filtrem CSS. Trzęsienia ziemi — dane USGS aktualizowane co 10 minut, zasięg ostatnich 24h.</div>
       </div>
     </div>
 
@@ -4631,6 +4643,19 @@ function updStartView(sv, startT) {
     </div>`;
 }
 
+// Dymek „data niepewna": najechanie (komputer) lub dotknięcie (telefon)
+function toggleTbd(e,btn){
+  e.stopPropagation();
+  const w=btn.parentElement, open=!w.classList.contains('active');
+  document.querySelectorAll('.tbd-wrap.active').forEach(x=>x.classList.remove('active'));
+  if(open) w.classList.add('active');
+}
+document.addEventListener('click',e=>{
+  if(!e.target.closest||!e.target.closest('.tbd-wrap'))
+    document.querySelectorAll('.tbd-wrap.active').forEach(x=>x.classList.remove('active'));
+});
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') document.querySelectorAll('.tbd-wrap.active').forEach(x=>x.classList.remove('active')); });
+
 function makeCard(cfg,isCustom){
   const target=new Date(cfg.date).getTime();
   const startT=cfg.start?new Date(cfg.start).getTime():null;
@@ -4646,8 +4671,16 @@ function makeCard(cfg,isCustom){
 
   const dateStr=new Date(cfg.date).toLocaleDateString('pl-PL',{day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'});
 
+  // Data jeszcze nieznana: pole tbd:true albo czerwona uwaga „…dokładnej daty…" w fakcie
+  const tbd=!!cfg.tbd||/dokładn\S*\s+dat/i.test(cfg.fact||'');
   card.innerHTML=`
     <div class="card-glow"></div>
+    ${tbd?`<div class="tbd-wrap">
+      <button type="button" class="tbd-btn" aria-label="Dokładna data nie jest jeszcze znana" onclick="toggleTbd(event,this)">!</button>
+      <div class="tbd-tip" role="tooltip"><strong>⚠️ Dokładna data nie jest jeszcze znana</strong><br>
+        Organizator nie ogłosił jeszcze ostatecznego terminu. Odliczanie pokazuje datę szacunkową i najprawdopodobniej
+        <strong>zostanie zaktualizowane</strong>, gdy termin zostanie podany.</div>
+    </div>`:''}
     <div class="card-actions">
       ${isCustom?`<button class="card-btn" onclick="shareCard('${uid}','${encodeURIComponent(cfg.title)}')">⎘</button>`:''}
       <button class="card-btn ${hasBell?'on':''}" id="bell_${id}" onclick="toggleNotif('${uid}','${id}')">🔔</button>
@@ -7899,6 +7932,10 @@ function quakeMagSize(mag) {
 
 let quakeDots = [];
 
+// Kafelki mapy: OpenStreetMap z ciemnym filtrem CSS — darmowe, bez klucza API
+const TILE_URL  = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+const TILE_ATTR = '©<a href="https://openstreetmap.org">OpenStreetMap</a>';
+
 // ── Quake Leaflet Map ────────────────────────────────────────
 let _quakeMap     = null;
 let _quakeLayer   = null;
@@ -8853,90 +8890,6 @@ function computeNextPass(track, userLat, userLon) {
 }
 
 // ── Draw ISS map ─────────────────────────────────────────
-// ── ISS Leaflet Map ──────────────────────────────────────────
-let _issMap      = null;
-let _issMarker   = null;
-let _issLabel    = null;
-let _issTrack    = null;
-let _userMarker  = null;
-
-// OpenStreetMap z ciemnym filtrem CSS — darmowe, bez klucza API
-const TILE_URL  = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-const TILE_ATTR = '©<a href="https://openstreetmap.org">OpenStreetMap</a>';
-const CARTO_DARK = TILE_URL;  // compat alias
-const CARTO_ATTR = TILE_ATTR;
-
-function initISSLeafletMap() {
-  if (_issMap) return;
-  const el = document.getElementById('issLeafletMap');
-  if (!el || typeof L === 'undefined') return;
-
-  _issMap = L.map(el, {
-    center: [20, 0], zoom: 2,
-    zoomControl: true, attributionControl: false,
-    minZoom: 2, maxZoom: 6,
-    worldCopyJump: false,
-    maxBounds: [[-90, -210], [90, 210]],
-    maxBoundsViscosity: 0.85,
-  });
-
-  L.tileLayer(TILE_URL, { attribution:TILE_ATTR, maxZoom:19, className:'dark-map-tiles', noWrap:false }).addTo(_issMap);
-
-  // ISS marker (custom div icon)
-  const issIcon = L.divIcon({
-    html: '<div class="iss-dot"></div><div class="iss-dot-label">ISS</div>',
-    className: '', iconSize: [14,28], iconAnchor: [7,7],
-  });
-  _issMarker = L.marker([0,0], { icon: issIcon, zIndexOffset: 1000 }).addTo(_issMap);
-}
-
-function drawISSMap(date) {
-  if (!_issMap) { initISSLeafletMap(); }
-  if (!_issMap || !issPos) return;
-
-  const lat = issPos.lat, lon = issPos.lon;
-
-  // Update ISS marker
-  _issMarker.setLatLng([lat, lon]);
-
-  // Ground track
-  if (_issTrack) { _issMap.removeLayer(_issTrack); _issTrack = null; }
-  if (issTrack.length > 1) {
-    // Handle antimeridian wrap: split at big lon jumps
-    const segments = [], cur = [[issTrack[0].lat, issTrack[0].lon]];
-    for (let i = 1; i < issTrack.length; i++) {
-      if (Math.abs(issTrack[i].lon - issTrack[i-1].lon) > 90) {
-        segments.push([...cur]);
-        cur.length = 0;
-      }
-      cur.push([issTrack[i].lat, issTrack[i].lon]);
-    }
-    segments.push(cur);
-    _issTrack = L.layerGroup(
-      segments.map(seg => L.polyline(seg, {
-        color:'#4cc97a', weight:1.5, opacity:0.4, dashArray:'5,7'
-      }))
-    ).addTo(_issMap);
-  }
-
-  // User location
-  if (sunLat != null) {
-    if (!_userMarker) {
-      const uIcon = L.divIcon({
-        html: '<div class="user-dot"></div>',
-        className: '', iconSize:[10,10], iconAnchor:[5,5],
-      });
-      _userMarker = L.marker([sunLat, sunLon], { icon: uIcon, title:'Twoja lokalizacja' }).addTo(_issMap);
-      _userMarker.bindTooltip(
-        `📍 ${sunLat.toFixed(2)}°${sunLat>=0?'N':'S'} ${Math.abs(sunLon).toFixed(2)}°${sunLon>=0?'E':'W'}`,
-        { permanent: false, direction: 'right', className: '' }
-      );
-    } else {
-      _userMarker.setLatLng([sunLat, sunLon]);
-    }
-  }
-}
-
 
 function issUpdateHero() {
   if (!issPos) return;
@@ -9076,7 +9029,6 @@ async function issTick() {
     issTrack = predictTrack(pos.lat, pos.lon);
   }
   if (issPos) {
-    drawISSMap();   // update Leaflet map
     issUpdateHero();
     issUpdatePass();
   }
@@ -9228,7 +9180,6 @@ async function initISSTab() {
   issInterval = setInterval(issTick, 3000); // 3s for smoother live movement
 
   // Resize handler
-  window.addEventListener('resize', () => { if(issInited) drawISSMap(); });
 }
 
 
@@ -9292,15 +9243,15 @@ function discNever() {
 // ═══════════════════════════════════════════════════════════
 (function initMoonSection() {
   const PHASES = ['🌑','🌒','🌓','🌔','🌕','🌖','🌗','🌘'];
-  const NAMES  = ['Nów','Przybywający sierp','Pierwsza kwadra','Przybywający gibbous',
-                  'Pełnia','Ubywający gibbous','Ostatnia kwadra','Ubywający sierp'];
+  const NAMES  = ['Nów','Przybywający sierp','Pierwsza kwadra','Przybywający garb',
+                  'Pełnia','Ubywający garb','Ostatnia kwadra','Ubywający sierp'];
   const FACTS  = [
     'Nów — Księżyc między Ziemią a Słońcem. Niewidoczny, ale idealna noc na obserwacje gwiazd.',
     'Przybywający sierp — co noc widoczny coraz wyżej i szerzej na zachodzie po zachodzie słońca.',
     'Pierwsza kwadra — prawa połowa oświetlona. Wschodzi w południe, zachodzi o północy.',
-    'Przybywający gibbous — ponad połowa oświetlona. Idealny czas obserwacji kraterów przez teleskop.',
+    'Przybywający garb — ponad połowa oświetlona. Idealny czas obserwacji kraterów przez teleskop.',
     'Pełnia — wschodzi o zachodzie słońca. Najjaśniejsza noc miesiąca, widoczny przez całą noc.',
-    'Ubywający gibbous — widoczny od wieczoru do południa. Wschodnia część w cieniu.',
+    'Ubywający garb — widoczny od wieczoru do południa. Wschodnia część w cieniu.',
     'Ostatnia kwadra — lewa połowa oświetlona. Wschodzi o północy, widoczny rano na południu.',
     'Ubywający sierp — widoczny tylko przed wschodem słońca nad wschodnim horyzontem.',
   ];
@@ -9314,16 +9265,16 @@ function discNever() {
     const Mm = (134.9633964 + 477198.8675055*T) % 360;
     const D  = (297.8501921 + 445267.1114034*T) % 360;
     let elong = D
-      - 6.289*Math.sin(deg2rad(Mm)) + 2.100*Math.sin(deg2rad(Ms))
-      - 1.274*Math.sin(deg2rad(2*D-Mm)) - 0.658*Math.sin(deg2rad(2*D))
-      - 0.214*Math.sin(deg2rad(2*Mm))   - 0.110*Math.sin(deg2rad(D));
+      + 6.289*Math.sin(deg2rad(Mm)) - 2.100*Math.sin(deg2rad(Ms))
+      + 1.274*Math.sin(deg2rad(2*D-Mm)) + 0.658*Math.sin(deg2rad(2*D))
+      + 0.214*Math.sin(deg2rad(2*Mm))   + 0.110*Math.sin(deg2rad(D));
     elong = ((elong % 360) + 360) % 360;
     const illum     = (1 - Math.cos(deg2rad(elong))) / 2;
     const phase0to1 = elong / 360;
     const distKm    = Math.round(385000.56
-      + 20905.355*Math.cos(deg2rad(Mm))
-      + 3699.111 *Math.cos(deg2rad(2*D-Mm))
-      + 2955.968 *Math.cos(deg2rad(2*D))
+      - 20905.355*Math.cos(deg2rad(Mm))
+      - 3699.111 *Math.cos(deg2rad(2*D-Mm))
+      - 2955.968 *Math.cos(deg2rad(2*D))
       - 569.925  *Math.cos(deg2rad(2*Mm)));
     return { phase0to1, illum, distKm };
   }
@@ -9357,12 +9308,6 @@ function discNever() {
                    : distKm < 375000 ? 'Blisko Ziemi'
                    : distKm > 405000 ? '🔵 Apogeum — daleko'
                    : 'Średnia odległość';
-
-    // Draw on big canvas using existing drawMoon function
-    const canvas = document.getElementById('moonBigCanvas');
-    if (canvas && typeof drawMoon === 'function') {
-      drawMoon(canvas, phase0to1 * 29.53);
-    }
 
     function sv(id,v){ const e=document.getElementById(id); if(e) e.textContent=v; }
     sv('moonBigEmoji',   PHASES[idx]);
@@ -10584,9 +10529,9 @@ function fxMoonState(ms) {
   const lam = Lp + 6.289 * s(Mp) + 1.274 * s(2 * D - Mp) + 0.658 * s(2 * D) + 0.214 * s(2 * Mp) - 0.186 * s(M) - 0.114 * s(2 * F);
   const bet = 5.128 * s(F) + 0.281 * s(Mp + F) + 0.278 * s(Mp - F) + 0.173 * s(2 * D - F);
   const dist = 385000.56 - 20905.355 * c(Mp) - 3699.111 * c(2 * D - Mp) - 2955.968 * c(2 * D) - 569.925 * c(2 * Mp);
-  let i = 180 - D - 6.289 * s(Mp) + 2.1 * s(M) - 1.274 * s(2 * D - Mp) - 0.658 * s(2 * D) - 0.214 * s(2 * Mp) - 0.11 * s(D);
-  i = Math.abs(((i % 360) + 540) % 360 - 180);
-  const k = (1 + c(i)) / 2, waxing = D < 180;
+  const el = n360(D + 6.289 * s(Mp) - 2.1 * s(M) + 1.274 * s(2 * D - Mp) + 0.658 * s(2 * D) + 0.214 * s(2 * Mp) + 0.11 * s(D));
+  const i = Math.abs(180 - el);                      // kąt fazowy
+  const k = (1 + c(i)) / 2, waxing = el < 180;
   const I = 1.54242, W = lam - Om;
   const A = Math.atan2(s(W) * c(bet) * c(I) - s(bet) * s(I), c(W) * c(bet)) * DEG;
   const libL = ((A - F) % 360 + 540) % 360 - 180;
@@ -10594,7 +10539,7 @@ function fxMoonState(ms) {
   // kierunek Słońca w widoku z Ziemi (prawa strona oświetlona przy przybywaniu)
   const sv = { x: (waxing ? 1 : -1) * s(i), y: 0, z: c(i) };
   const sun = fxViewToVec(sv, libL, libB);
-  return { i, k, waxing, libL, libB, dist, age: D / 360 * 29.530588, sun };
+  return { i, k, el, waxing, libL, libB, dist, age: el / 360 * 29.53059, sun };
 }
 
 // Księżyc: fotometria Lommela-Seeligera (płaski „księżycowy" blask) + światło popielate
@@ -11351,13 +11296,9 @@ function drawStars(ctx, stars, W, H, lam0, phi0) {
 
 function buildGlobeDOM() {
   const pane = $('#pane_iss'); if (!pane || $('#fxGlobeBox')) return false;
-  const anchor = $('.iss-map-box', pane);
+  const slot = $('#fxGlobeSlot', pane);
   const tmp = document.createElement('div');
   tmp.innerHTML =
-    '<div class="section-head" id="fxGlobeHead">' +
-      '<h2 class="section-title">Widok 3D — Ziemia z orbity</h2>' +
-      '<p class="section-sub">// Tekstura NASA Blue Marble · dzień i noc na żywo · orbita z danych TLE</p>' +
-    '</div>' +
     '<div class="fx-globe-box" id="fxGlobeBox">' +
       '<canvas id="fxGlobe" aria-label="Trójwymiarowy widok Ziemi z pozycją ISS"></canvas>' +
       '<div class="fx-g-hud tl"><span class="fx-live"></span>ORBITA NA ŻYWO <em id="fxGTex">· ładowanie tekstur…</em></div>' +
@@ -11377,10 +11318,14 @@ function buildGlobeDOM() {
         '<button type="button" id="fxGZoomIn" aria-label="Przybliż">＋</button>' +
       '</div>' +
       '<div class="fx-g-hint" id="fxGHint">PRZECIĄGNIJ = OBRÓT · SCROLL = ZOOM · DWUKLIK = ŚLEDŹ ISS</div>' +
+    '</div>' +
+    '<div class="fx-globe-foot">' +
+      '<span id="fxGLoc">📍 TWOJA LOKALIZACJA: —</span>' +
+      '<button type="button" onclick="issResetLocation()" title="Pobierz lokalizację ponownie">↺ Resetuj lokalizację</button>' +
     '</div>';
   const frag = document.createDocumentFragment();
   while (tmp.firstChild) frag.appendChild(tmp.firstChild);
-  if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(frag, anchor.nextSibling);
+  if (slot && slot.parentNode) slot.parentNode.replaceChild(frag, slot);
   else pane.appendChild(frag);
   G.built = true;
   return true;
@@ -11724,7 +11669,13 @@ function penPath(ctx, pts) {
 }
 
 function updateGlobeHUD(iss, sun) {
-  const dEl = $('#fxGData'), sEl = $('#fxGSun');
+  const dEl = $('#fxGData'), sEl = $('#fxGSun'), lEl = $('#fxGLoc');
+  if (lEl) {
+    const ok = typeof sunLat !== 'undefined' && sunLat != null && typeof sunLon !== 'undefined' && sunLon != null;
+    const t = ok ? '📍 TWOJA LOKALIZACJA: ' + Math.abs(sunLat).toFixed(2) + '°' + (sunLat >= 0 ? 'N' : 'S') + ' · ' +
+      Math.abs(sunLon).toFixed(2) + '°' + (sunLon >= 0 ? 'E' : 'W') : '📍 TWOJA LOKALIZACJA: nie ustawiona';
+    if (lEl.textContent !== t) lEl.textContent = t;
+  }
   const lat = iss.lat, lon = iss.lon;
   const ns = Math.abs(lat).toFixed(2) + '°' + (lat >= 0 ? 'N' : 'S');
   const ew = Math.abs(lon).toFixed(2) + '°' + (lon >= 0 ? 'E' : 'W');
@@ -11775,10 +11726,6 @@ function buildMoonDOM() {
   const box = $('.moon-big-box'); if (!box || $('#fxMoonBox')) return false;
   const tmp = document.createElement('div');
   tmp.innerHTML =
-    '<div class="section-head" id="fxMoonHead" style="margin-top:36px">' +
-      '<h2 class="section-title">Widok 3D — Księżyc</h2>' +
-      '<p class="section-sub">// Faza i libracja na żywo · obróć, by zobaczyć stronę niewidoczną z Ziemi</p>' +
-    '</div>' +
     '<div class="fx-globe-box fx-moon-box" id="fxMoonBox">' +
       '<canvas id="fxMoon" aria-label="Trójwymiarowy widok Księżyca z aktualną fazą"></canvas>' +
       '<div class="fx-g-hud tl"><span class="fx-live" style="background:#c8d2ea"></span>KSIĘŻYC NA ŻYWO <em id="fxMTex">· ładowanie tekstury…</em></div>' +
@@ -11794,7 +11741,7 @@ function buildMoonDOM() {
     '</div>';
   const frag = document.createDocumentFragment();
   while (tmp.firstChild) frag.appendChild(tmp.firstChild);
-  box.parentNode.insertBefore(frag, box.nextSibling);
+  box.parentNode.insertBefore(frag, box);
   MN.built = true;
   return true;
 }
@@ -11923,14 +11870,9 @@ function moonDraw() {
   }
   if (now - MN.hudAt > 400) { MN.hudAt = now; moonHUD(st); }
 }
-function moonPhaseName(st) {
-  const k = st.k;
-  if (k < 0.02) return 'NÓW';
-  if (k > 0.98) return 'PEŁNIA';
-  if (Math.abs(k - 0.5) < 0.03) return st.waxing ? 'PIERWSZA KWADRA' : 'OSTATNIA KWADRA';
-  if (k < 0.5) return st.waxing ? 'PRZYBYWAJĄCY SIERP' : 'UBYWAJĄCY SIERP';
-  return st.waxing ? 'PRZYBYWAJĄCY GARB' : 'UBYWAJĄCY GARB';
-}
+// Te same 8 faz i ta sama reguła co tabela pod widokiem → zawsze zgodne nazwy
+const MOON_PHASES = ['NÓW', 'PRZYBYWAJĄCY SIERP', 'PIERWSZA KWADRA', 'PRZYBYWAJĄCY GARB', 'PEŁNIA', 'UBYWAJĄCY GARB', 'OSTATNIA KWADRA', 'UBYWAJĄCY SIERP'];
+function moonPhaseName(st) { return MOON_PHASES[Math.round(st.el / 45) % 8]; }
 function moonHUD(st) {
   const p = $('#fxMPhase'), d = $('#fxMData');
   const off = Math.abs(wrap180((MN.bufGeom ? MN.bufGeom.lam : MN.lam0) - st.libL));
